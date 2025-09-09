@@ -84,4 +84,118 @@
             <respond/>
         </faultSequence>
     </resource>
+    <resource methods="POST" uri-template="/orders/deliver">
+        <inSequence>
+            <log category="INFO">
+                <message>Received order delivery request: ${payload}</message>
+            </log>
+            <!-- Validate required fields -->
+            <filter xpath="${exists(payload.order_id) and exists(payload.driver_id) and exists(payload.delivery_proof)}">
+                <then>
+                    <!-- Forward request to external service -->
+                    <http.post configKey="ROSConnection">
+                        <relativePath>/orders/deliver</relativePath>
+                        <headers>[["Content-Type","application/json"]]</headers>
+                        <requestBodyType>JSON</requestBodyType>
+                        <requestBodyJson>${payload}</requestBodyJson>
+                        <forceScAccepted>false</forceScAccepted>
+                        <disableChunking>false</disableChunking>
+                        <forceHttp10>false</forceHttp10>
+                        <noKeepAlive>false</noKeepAlive>
+                        <forcePostPutNobody>false</forcePostPutNobody>
+                        <forceHttpContentLength>false</forceHttpContentLength>
+                    </http.post>
+                    <log category="INFO">
+                        <message>Delivery response: ${payload}</message>
+                    </log>
+                    <respond/>
+                </then>
+                <else>
+                    <log category="ERROR">
+                        <message>Missing required fields for delivery</message>
+                    </log>
+                    <payloadFactory media-type="json">
+                        <format>
+                            {
+                            "status": "error",
+                            "message": "Missing required fields: order_id, driver_id, and delivery_proof"
+                            }
+                        </format>
+                    </payloadFactory>
+                    <respond/>
+                </else>
+            </filter>
+        </inSequence>
+        <faultSequence>
+            <log category="ERROR">
+                <message>Error occurred during delivery: ${props.synapse.ERROR_MESSAGE}</message>
+            </log>
+            <payloadFactory media-type="json">
+                <format>
+                    {
+                    "status": "error",
+                    "message": "Failed to process delivery"
+                    }
+                </format>
+            </payloadFactory>
+            <respond/>
+        </faultSequence>
+    </resource>
+    <resource methods="POST" uri-template="/orders/on-delivery">
+        <inSequence>
+            <log category="INFO">
+                <message>Received on-delivery request: ${payload}</message>
+            </log>
+            <!-- Validate required fields -->
+            <filter xpath="${exists(payload.order_id) and exists(payload.driver_id)}">
+                <then>
+                    <!-- Forward request to external service -->
+                    <http.post configKey="ROSConnection">
+                        <relativePath>/orders/on-delivery</relativePath>
+                        <headers>[["Content-Type","application/json"]]</headers>
+                        <requestBodyType>JSON</requestBodyType>
+                        <requestBodyJson>${payload}</requestBodyJson>
+                        <forceScAccepted>false</forceScAccepted>
+                        <disableChunking>false</disableChunking>
+                        <forceHttp10>false</forceHttp10>
+                        <noKeepAlive>false</noKeepAlive>
+                        <forcePostPutNobody>false</forcePostPutNobody>
+                        <forceHttpContentLength>false</forceHttpContentLength>
+                    </http.post>
+                    <log category="INFO">
+                        <message>On-delivery response: ${payload}</message>
+                    </log>
+                    <respond/>
+                </then>
+                <else>
+                    <log category="ERROR">
+                        <message>Missing required fields for on-delivery</message>
+                    </log>
+                    <payloadFactory media-type="json">
+                        <format>
+                            {
+                            "status": "error",
+                            "message": "Missing required fields: order_id and driver_id"
+                            }
+                        </format>
+                    </payloadFactory>
+                    <respond/>
+                </else>
+            </filter>
+        </inSequence>
+        <faultSequence>
+            <log category="ERROR">
+                <message>Error occurred during on-delivery: ${props.synapse.ERROR_MESSAGE}</message>
+            </log>
+            <payloadFactory media-type="json">
+                <format>
+                    {
+                    "status": "error",
+                    "message": "Failed to process on-delivery request"
+                    }
+                </format>
+            </payloadFactory>
+            <respond/>
+        </faultSequence>
+    </resource>
 </api>
