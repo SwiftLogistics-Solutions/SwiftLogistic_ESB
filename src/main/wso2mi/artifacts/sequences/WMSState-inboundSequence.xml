@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sequence name="WMSState-inboundSequence" trace="disable" xmlns="http://ws.apache.org/ns/synapse">
+    <log category="INFO" logMessageID="false" logFullPayload="false">
+        <message>received: ${payload}</message>
+    </log>
+    <variable name="orderStatus" type="STRING" expression="${payload.status}"/>
+    <log category="INFO" logMessageID="false" logFullPayload="false">
+        <message>${vars.orderStatus}</message>
+    </log>
+    <filter xpath="${vars.orderStatus == &quot;SHIPPED&quot;}">
+        <then>
+            <log category="INFO" logMessageID="false" logFullPayload="false">
+                <message>need to request to ros</message>
+            </log>
+        </then>
+        <else>
+            <log category="INFO" logMessageID="false" logFullPayload="false">
+                <message>regular state</message>
+            </log>
+        </else>
+    </filter>
+</sequence>

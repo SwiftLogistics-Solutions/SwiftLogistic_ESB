@@ -1,0 +1,10 @@
+---
+key: "newOrder-1.0.0"
+name : "newOrder"
+displayName : "newOrder"
+description: "newOrder"
+version: "1.0.0"
+serviceUrl: "https://{MI_HOST}:{MI_PORT}/neworder"
+definitionType: "OAS3"
+securityType: "BASIC"
+mutualSSLEnabled: false

@@ -1,0 +1,10 @@
+---
+key: "packageDetails-1.0.0"
+name : "packageDetails"
+displayName : "packageDetails"
+description: "packageDetails"
+version: "1.0.0"
+serviceUrl: "https://{MI_HOST}:{MI_PORT}/packagedetails"
+definitionType: "OAS3"
+securityType: "BASIC"
+mutualSSLEnabled: false

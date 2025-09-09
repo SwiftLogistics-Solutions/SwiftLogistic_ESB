@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sequence name="TCPProcessingSequence" xmlns="http://ws.apache.org/ns/synapse">
+    <log category="INFO">
+        <message>Received file data: ${payload}</message>
+    </log>
+    <!-- Check if the status is delivery_ready -->
+    <filter xpath="${payload.status == 'delivery_ready'}">
+        <then>
+            <log category="INFO">
+                <message>Package ${payload.packageId} is ready for delivery</message>
+            </log>
+            <!-- Extract packageId for further processing -->
+            <variable name="packageId" expression="${payload.packageId}" type="STRING"/>
+            <!-- Call the packageDetails API to get more information -->
+            <http.get configKey="PackageDetailsConnection">
+                <relativePath>/packagedetails?packageId=${vars.packageId}</relativePath>
+                <headers>[["Content-Type","application/json"]]</headers>
+                <responseVariable>packageDetailsResponse</responseVariable>
+                <overwriteBody>false</overwriteBody>
+            </http.get>
+            <log category="INFO">
+                <message>Package details retrieved: ${vars.packageDetailsResponse}</message>
+            </log>
+            <!-- Process the delivery ready notification -->
+            <payloadFactory media-type="json">
+                <format>
+                    {
+                    "packageId": "${vars.packageId}",
+                    "status": "processed",
+                    "message": "Package delivery ready notification processed",
+                    "customerDetails": ${vars.packageDetailsResponse}
+                    }
+                </format>
+            </payloadFactory>
+            <log category="INFO">
+                <message>Processing completed: ${payload}</message>
+            </log>
+        </then>
+        <else>
+            <log category="INFO">
+                <message>Package ${payload.packageId} status is ${payload.status} - no action needed</message>
+            </log>
+        </else>
+    </filter>
+    <drop/>
+</sequence>

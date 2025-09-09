@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<sequence name="TCPErrorSequence" xmlns="http://ws.apache.org/ns/synapse">
+    <log category="ERROR">
+        <message>Error processing TCP data: ${props.synapse.ERROR_MESSAGE}</message>
+    </log>
+    <drop/>
+</sequence>

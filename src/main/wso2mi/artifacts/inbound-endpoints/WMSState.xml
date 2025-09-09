@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<inboundEndpoint name="WMSState" sequence="WMSState-inboundSequence" onError="WMSState-inboundErrorSequence" suspend="false" protocol="http">
+    <parameters xmlns="http://ws.apache.org/ns/synapse">
+        <parameter name="inbound.http.port">8060</parameter>
+        <parameter name="sequential">true</parameter>
+        <parameter name="coordination">true</parameter>
+        <parameter name="inbound.worker.pool.size.core">400</parameter>
+        <parameter name="inbound.worker.pool.size.max">500</parameter>
+        <parameter name="inbound.worker.thread.keep.alive.sec">60</parameter>
+        <parameter name="inbound.worker.pool.queue.length">-1</parameter>
+        <parameter name="inbound.thread.id">PassThroughInboundWorkerPool</parameter>
+    </parameters>
+</inboundEndpoint>

@@ -1,0 +1,21 @@
+<proxy name="ImmediateResponseProxy" transports="https,http" startOnLoad="true" xmlns="http://ws.apache.org/ns/synapse">
+    <target>
+        <inSequence>
+            <payloadFactory media-type="json">
+                <format>
+                    {
+                    "status": "received",
+                    "message": "Request is being processed"
+                    }
+                </format>
+            </payloadFactory>
+            <respond/>
+        </inSequence>
+        <faultSequence>
+            <log category="ERROR">
+                <message>Error: ${props.synapse.ERROR_MESSAGE}</message>
+            </log>
+            <drop/>
+        </faultSequence>
+    </target>
+</proxy>
