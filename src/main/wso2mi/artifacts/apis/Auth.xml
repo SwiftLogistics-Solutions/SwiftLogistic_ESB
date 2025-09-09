@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/auth" name="Auth" xmlns="http://ws.apache.org/ns/synapse">
+    <resource methods="POST" uri-template="/login">
+        <inSequence>
+            <log category="INFO">
+                <message>Received login request: ${payload}</message>
+            </log>
+            <!-- Validate required fields -->
+            <filter xpath="${exists(payload.email) and exists(payload.password)}">
+                <then>
+                    <!-- Forward login request to external service -->
+                    <http.post configKey="AuthServiceConnection">
+    <relativePath >/api/users/login</relativePath>
+    <headers >[{"Content-Type":"application/json"}]</headers>
+    <requestBodyType >JSON</requestBodyType>
+    <requestBodyJson >${payload}</requestBodyJson>
+    <forceScAccepted >false</forceScAccepted>
+    <disableChunking >false</disableChunking>
+    <forceHttp10 >false</forceHttp10>
+    <noKeepAlive >false</noKeepAlive>
+    <forcePostPutNobody >false</forcePostPutNobody>
+    <responseVariable >http_post_328</responseVariable>
+    <overwriteBody >true</overwriteBody>
+</http.post>
+
+                    <log category="INFO">
+                        <message>Login response: ${payload}</message>
+                    </log>
+                    <respond/>
+                </then>
+                <else>
+                    <log category="ERROR">
+                        <message>Missing required fields for login</message>
+                    </log>
+                    <payloadFactory media-type="json">
+                        <format>
+                            {
+                            "status": "error",
+                            "message": "Missing required fields: email and password"
+                            }
+                        </format>
+                    </payloadFactory>
+                    <respond/>
+                </else>
+            </filter>
+        </inSequence>
+        <faultSequence>
+            <log category="ERROR">
+                <message>Error occurred during login: ${props.synapse.ERROR_MESSAGE}</message>
+            </log>
+            <payloadFactory media-type="json">
+                <format>
+                    {
+                    "status": "error",
+                    "message": "Login failed"
+                    }
+                </format>
+            </payloadFactory>
+            <respond/>
+        </faultSequence>
+    </resource>
+    <resource methods="POST" uri-template="/signup">
+        <inSequence>
+            <log category="INFO">
+                <message>Received signup request: ${payload}</message>
+            </log>
+            <!-- Validate required fields -->
+            <filter xpath="${exists(payload.name) and exists(payload.email) and exists(payload.password) and exists(payload.confirmPassword)}">
+                <then>
+                    <!-- Forward signup request to external service -->
+                    <http.post configKey="AuthServiceConnection">
+                        <relativePath>/api/users/signup</relativePath>
+                        <headers>[["Content-Type","application/json"]]</headers>
+                        <requestBodyType>JSON</requestBodyType>
+                        <requestBodyJson>${payload}</requestBodyJson>
+                        <forceScAccepted>false</forceScAccepted>
+                        <disableChunking>false</disableChunking>
+                        <forceHttp10>false</forceHttp10>
+                        <noKeepAlive>false</noKeepAlive>
+                        <forcePostPutNobody>false</forcePostPutNobody>
+                        <forceHttpContentLength>false</forceHttpContentLength>
+                    </http.post>
+                    <log category="INFO">
+                        <message>Signup response: ${payload}</message>
+                    </log>
+                    <respond/>
+                </then>
+                <else>
+                    <log category="ERROR">
+                        <message>Missing required fields for signup</message>
+                    </log>
+                    <payloadFactory media-type="json">
+                        <format>
+                            {
+                            "status": "error",
+                            "message": "Missing required fields: name, email, password, and confirmPassword"
+                            }
+                        </format>
+                    </payloadFactory>
+                    <respond/>
+                </else>
+            </filter>
+        </inSequence>
+        <faultSequence>
+            <log category="ERROR">
+                <message>Error occurred during signup: ${props.synapse.ERROR_MESSAGE}</message>
+            </log>
+            <payloadFactory media-type="json">
+                <format>
+                    {
+                    "status": "error",
+                    "message": "Signup failed"
+                    }
+                </format>
+            </payloadFactory>
+            <respond/>
+        </faultSequence>
+    </resource>
+</api>
