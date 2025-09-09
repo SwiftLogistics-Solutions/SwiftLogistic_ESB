@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/ros" name="ROS" xmlns="http://ws.apache.org/ns/synapse">
+    <resource methods="POST" uri-template="/orders/accept">
+        <inSequence>
+            <log category="INFO">
+                <message>Received order acceptance request: ${payload}</message>
+            </log>
+            <!-- Create the required JSON payload -->
+            <payloadFactory media-type="json">
+                <format>
+                    {
+                    "order_id": "${payload.order_id}",
+                    "driver_id": "${payload.driver_id}"
+                    }
+                </format>
+            </payloadFactory>
+            <!-- Send POST request to the external service -->
+            <http.post configKey="ROSConnection">
+                <relativePath>/orders/accept</relativePath>
+                <headers>[{"Content-Type":"application/json"}]</headers>
+                <requestBodyType>JSON</requestBodyType>
+                <requestBodyJson>${payload}</requestBodyJson>
+                <forceScAccepted>false</forceScAccepted>
+                <disableChunking>false</disableChunking>
+                <forceHttp10>false</forceHttp10>
+                <noKeepAlive>false</noKeepAlive>
+                <forcePostPutNobody>false</forcePostPutNobody>
+                <responseVariable>http_post_926</responseVariable>
+                <overwriteBody>true</overwriteBody>
+            </http.post>
+            <log category="INFO">
+                <message>Response from external service: ${payload}</message>
+            </log>
+            <respond/>
+        </inSequence>
+        <faultSequence>
+            <log category="ERROR">
+                <message>Error occurred: ${props.synapse.ERROR_MESSAGE}</message>
+            </log>
+            <payloadFactory media-type="json">
+                <format>
+                    {
+                    "status": "error",
+                    "message": "Failed to process order acceptance"
+                    }
+                </format>
+            </payloadFactory>
+            <respond/>
+        </faultSequence>
+    </resource>
+    <resource methods="GET" protocol="http" uri-template="/routes/optimize/{driverid}">
+        <inSequence>
+            <log category="INFO">
+                <message>Received route optimization request for driver: ${params.pathParams.driverid}</message>
+            </log>
+            <!-- Make GET request to external service with driver_id path parameter -->
+            <http.get configKey="ROSConnection">
+                <relativePath>/routes/optimize/${params.pathParams.driverid}</relativePath>
+                <headers>[["Content-Type","application/json"]]</headers>
+                <forceScAccepted>false</forceScAccepted>
+                <disableChunking>false</disableChunking>
+                <forceHttp10>false</forceHttp10>
+                <noKeepAlive>false</noKeepAlive>
+                <forcePostPutNobody>false</forcePostPutNobody>
+                <forceHttpContentLength>false</forceHttpContentLength>
+            </http.get>
+            <log category="INFO">
+                <message>Route optimization response: ${payload}</message>
+            </log>
+            <respond/>
+        </inSequence>
+        <faultSequence>
+            <log category="ERROR">
+                <message>Error occurred during route optimization: ${props.synapse.ERROR_MESSAGE}</message>
+            </log>
+            <payloadFactory media-type="json">
+                <format>
+                    {
+                    "status": "error",
+                    "message": "Failed to optimize routes for driver"
+                    }
+                </format>
+            </payloadFactory>
+            <respond/>
+        </faultSequence>
+    </resource>
+</api>
