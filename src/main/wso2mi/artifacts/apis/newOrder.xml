@@ -6,9 +6,9 @@
                 <message>Received payload: ${payload}</message>
             </log>
             <!-- Extract the nested payload data -->
-            <variable name="orderData" expression="${payload.payload}" type="JSON"/>
+            <variable name="orderData" type="JSON" expression="${payload}"/>
             <!-- Validate payload structure using the extracted data -->
-            <filter xpath="${exists(vars.orderData.orderId) and exists(vars.orderData.customerId)}">
+            <filter xpath="${exists(vars.orderData.orderID) and exists(vars.orderData.customer_id)}">
                 <then>
                     <scatter-gather parallel-execution="false" target="Body" result-content-type="JSON">
                         <aggregation expression="${payload}"/>
@@ -19,7 +19,7 @@
                                     {
                                     "status": "ack",
                                     "message": "Order received and being processed",
-                                    "orderId": "${vars.orderData.orderId}"
+                                    "orderId": "${vars.orderData.orderID}"
                                     }
                                 </format>
                             </payloadFactory>
@@ -28,19 +28,20 @@
                         <!-- Second Path: Transform and send to external service -->
                         <sequence>
                             <log category="INFO">
-                                <message>Processing order: ${vars.orderData.orderId}</message>
+                                <message>Processing order: ${vars.orderData.orderID}</message>
                             </log>
-                            <!-- Create SOAP request matching the server's expected format -->
+                            <!-- Create proper SOAP request -->
                             <payloadFactory media-type="xml">
                                 <format>
-                                    <![CDATA[<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tns="urn:swiftlogistics.wms">
+                                    <![CDATA[<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
                                         <soap:Body>
-                                            <tns:new_package>
-                                                <orderId>${vars.orderData.orderId}</orderId>
-                                                <customerId>${vars.orderData.customerId}</customerId>
-                                                <amount>${vars.orderData.amount}</amount>
+                                            <create_order>
+                                                <orderID>${vars.orderData.orderID}</orderID>
+                                                <customer_id>${vars.orderData.customer_id}</customer_id>
+                                                <priority>${vars.orderData.priority}</priority>
+                                                <totalAmount>${vars.orderData.totalAmount}</totalAmount>
                                                 <items>${vars.orderData.items}</items>
-                                            </tns:new_package>
+                                            </create_order>
                                         </soap:Body>
                                     </soap:Envelope>]]>
                                 </format>
@@ -55,15 +56,22 @@
                             <!-- Send to external service -->
                             <http.post configKey="ExternalSOAPService">
                                 <relativePath>/orderService</relativePath>
-                                <headers>[["Content-Type","text/xml"],["SOAPAction","processOrder"]]</headers>
+                                <headers>[["Content-Type","text/xml"], ["SOAPAction","create_order"]]</headers>
                                 <requestBodyType>XML</requestBodyType>
                                 <requestBodyXml>${xpath('$body/node()')}</requestBodyXml>
+                                <forceScAccepted>false</forceScAccepted>
+                                <disableChunking>false</disableChunking>
+                                <forceHttp10>false</forceHttp10>
+                                <noKeepAlive>false</noKeepAlive>
+                                <forcePostPutNobody>false</forcePostPutNobody>
+                                <responseVariable>soapResponse</responseVariable>
+                                <overwriteBody>true</overwriteBody>
                             </http.post>
                             <log category="INFO">
                                 <message>External service response received: ${payload}</message>
                             </log>
                             <!-- Extract the orderId from SOAP response -->
-                            <variable name="receivedOrderId" expression="${payload.Envelope.Body.new_package_response}" type="STRING"/>
+                            <variable name="receivedOrderId" expression="${xpath('//new_package_response/text()')}" type="STRING"/>
                             <log category="INFO">
                                 <message>Extracted orderId: ${vars.receivedOrderId}</message>
                             </log>
@@ -72,8 +80,8 @@
                                 <format>
                                     {
                                     "orderId": "${vars.receivedOrderId}",
-                                    "customerId": "${vars.orderData.customerId}",
-                                    "totalAmount": "${vars.orderData.amount}",
+                                    "customerId": "${vars.orderData.customer_id}",
+                                    "totalAmount": "${vars.orderData.totalAmount}",
                                     "items": ${vars.orderData.items}
                                     }
                                 </format>
@@ -91,7 +99,7 @@
                                 <forceHttp10>false</forceHttp10>
                                 <noKeepAlive>false</noKeepAlive>
                                 <forcePostPutNobody>false</forcePostPutNobody>
-                                <responseVariable>http_post_819</responseVariable>
+                                <responseVariable>wmsResponse</responseVariable>
                                 <overwriteBody>true</overwriteBody>
                             </http.post>
                             <log category="INFO">

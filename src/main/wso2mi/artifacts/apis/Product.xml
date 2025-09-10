@@ -70,4 +70,39 @@
             <respond/>
         </faultSequence>
     </resource>
+    <resource methods="GET" uri-template="/offers">
+        <inSequence>
+            <log category="INFO">
+                <message>Fetching product offers</message>
+            </log>
+            <http.get configKey="ProductServiceConnection">
+                <relativePath>/api/products/offers</relativePath>
+                <headers>[["Content-Type","application/json"]]</headers>
+                <forceScAccepted>false</forceScAccepted>
+                <disableChunking>false</disableChunking>
+                <forceHttp10>false</forceHttp10>
+                <noKeepAlive>false</noKeepAlive>
+                <forcePostPutNobody>false</forcePostPutNobody>
+                <forceHttpContentLength>false</forceHttpContentLength>
+            </http.get>
+            <log category="INFO">
+                <message>Offers response: ${payload}</message>
+            </log>
+            <respond/>
+        </inSequence>
+        <faultSequence>
+            <log category="ERROR">
+                <message>Error fetching offers: ${props.synapse.ERROR_MESSAGE}</message>
+            </log>
+            <payloadFactory media-type="json">
+                <format>
+                    {
+                    "status": "error",
+                    "message": "Failed to fetch offers"
+                    }
+                </format>
+            </payloadFactory>
+            <respond/>
+        </faultSequence>
+    </resource>
 </api>
