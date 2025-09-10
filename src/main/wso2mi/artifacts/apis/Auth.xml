@@ -6,14 +6,18 @@
                 <message>Received signup request: ${payload}</message>
             </log>
             <!-- Validate required fields -->
-            <filter xpath="${exists(payload.name) and exists(payload.email) and exists(payload.password) and exists(payload.confirmPassword)}">
+            <filter xpath="${exists(payload.name) and exists(payload.email) and exists(payload.password) and exists(payload.confirmPassword) and exists(payload.role)}">
                 <then>
-                    <!-- Forward signup request to external service -->
+                    <!-- Store original payload for later use -->
+                    <variable name="originalPayload" expression="${payload}" type="JSON"/>
+                    <!-- First call to auth service -->
                     <http.post configKey="AuthServiceConnection">
                         <relativePath>/api/users/signup</relativePath>
                         <headers>[["Content-Type","application/json"]]</headers>
                         <requestBodyType>JSON</requestBodyType>
                         <requestBodyJson>${payload}</requestBodyJson>
+                        <responseVariable>authResponse</responseVariable>
+                        <overwriteBody>false</overwriteBody>
                         <forceScAccepted>false</forceScAccepted>
                         <disableChunking>false</disableChunking>
                         <forceHttp10>false</forceHttp10>
@@ -22,8 +26,97 @@
                         <forceHttpContentLength>false</forceHttpContentLength>
                     </http.post>
                     <log category="INFO">
-                        <message>Signup response: ${payload}</message>
+                        <message>Auth service response: ${vars.authResponse}</message>
                     </log>
+                    <!-- Extract firebaseUID from auth response -->
+                    <variable name="firebaseUID" type="STRING" expression="${vars.authResponse.payload.user.uid}"/>
+                    <!-- Check role and route accordingly -->
+                    <switch source="${vars.originalPayload.role}">
+                        <case regex="customer">
+                            <log category="INFO">
+                                <message>Processing customer signup with firebaseUID: ${vars.firebaseUID}</message>
+                            </log>
+                            <!-- Create SOAP request for customer service -->
+                            <payloadFactory media-type="xml">
+                                <format>
+                                    <![CDATA[<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+                                        <soap:Body>
+                                            <create_customer>
+                                                <firebaseUID>${vars.firebaseUID}</firebaseUID>
+                                                <name>${vars.originalPayload.name}</name>
+                                                <email>${vars.originalPayload.email}</email>
+                                                <phone>${vars.originalPayload.phone}</phone>
+                                                <address>${vars.originalPayload.address}</address>
+                                            </create_customer>
+                                        </soap:Body>
+                                    </soap:Envelope>]]>
+                                </format>
+                            </payloadFactory>
+                            <!-- Send to customer service -->
+                            <http.post configKey="ExternalSOAPService">
+                                <relativePath>/customerService</relativePath>
+                                <headers>[{"Content-Type":"text/xml"}, {"SOAPAction":"create_customer"}]</headers>
+                                <requestBodyType>XML</requestBodyType>
+                                <requestBodyXml>${xpath('$body/node()')}</requestBodyXml>
+                                <forceScAccepted>false</forceScAccepted>
+                                <disableChunking>false</disableChunking>
+                                <forceHttp10>false</forceHttp10>
+                                <noKeepAlive>false</noKeepAlive>
+                                <forcePostPutNobody>false</forcePostPutNobody>
+                                <responseVariable>http_post_644</responseVariable>
+                                <overwriteBody>true</overwriteBody>
+                            </http.post>
+                            <log category="INFO">
+                                <message>Customer service response: ${payload}</message>
+                            </log>
+                        </case>
+                        <case regex="driver">
+                            <log category="INFO">
+                                <message>Processing driver signup with firebaseUID: ${vars.firebaseUID}</message>
+                            </log>
+                            <!-- Create JSON request for driver service -->
+                            <payloadFactory media-type="json">
+                                <format>
+                                    {
+                                    "firebaseUID": "${vars.firebaseUID}",
+                                    "name": "${vars.originalPayload.name}",
+                                    "email": "${vars.originalPayload.email}",
+                                    "phone": "${vars.originalPayload.phone}",
+                                    "address": "${vars.originalPayload.address}"
+                                    }
+                                </format>
+                            </payloadFactory>
+                            <!-- Send to driver service -->
+                            <http.post configKey="ROSConnection">
+                                <relativePath>/drivers/signup</relativePath>
+                                <headers>[["Content-Type","application/json"]]</headers>
+                                <requestBodyType>JSON</requestBodyType>
+                                <requestBodyJson>${payload}</requestBodyJson>
+                                <forceScAccepted>false</forceScAccepted>
+                                <disableChunking>false</disableChunking>
+                                <forceHttp10>false</forceHttp10>
+                                <noKeepAlive>false</noKeepAlive>
+                                <forcePostPutNobody>false</forcePostPutNobody>
+                                <forceHttpContentLength>false</forceHttpContentLength>
+                            </http.post>
+                            <log category="INFO">
+                                <message>Driver service response: ${payload}</message>
+                            </log>
+                        </case>
+                        <default>
+                            <log category="ERROR">
+                                <message>Invalid role: ${vars.originalPayload.role}</message>
+                            </log>
+                            <payloadFactory media-type="json">
+                                <format>
+                                    {
+                                    "status": "error",
+                                    "message": "Invalid role. Must be 'customer' or 'driver'"
+                                    }
+                                </format>
+                            </payloadFactory>
+                        </default>
+                    </switch>
                     <respond/>
                 </then>
                 <else>
@@ -34,7 +127,7 @@
                         <format>
                             {
                             "status": "error",
-                            "message": "Missing required fields: name, email, password, and confirmPassword"
+                            "message": "Missing required fields: name, email, password, confirmPassword, and role"
                             }
                         </format>
                     </payloadFactory>

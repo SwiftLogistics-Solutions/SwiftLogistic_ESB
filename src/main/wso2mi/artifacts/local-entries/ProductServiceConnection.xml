@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<localEntry key="ProductServiceConnection" xmlns="http://ws.apache.org/ns/synapse">
+    <http.init>
+        <connectionType>http</connectionType>
+        <baseUrl>http://localhost:5999</baseUrl>
+        <authType>None</authType>
+        <timeoutDuration>30</timeoutDuration>
+        <timeoutAction>Never</timeoutAction>
+        <retryCount>0</retryCount>
+        <retryDelay>0</retryDelay>
+        <suspendInitialDuration>-1</suspendInitialDuration>
+        <suspendProgressionFactor>1</suspendProgressionFactor>
+        <name>ProductServiceConnection</name>
+    </http.init>
+</localEntry>
