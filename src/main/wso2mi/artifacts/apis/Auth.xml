@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <api context="/auth" name="Auth" xmlns="http://ws.apache.org/ns/synapse">
     <resource methods="POST" uri-template="/signup">
         <inSequence>
@@ -52,10 +51,13 @@
                                     </soap:Envelope>]]>
                                 </format>
                             </payloadFactory>
+                            <log category="INFO" logMessageID="false" logFullPayload="false">
+                                <message>Request body:${xpath('$body/node()')}</message>
+                            </log>
                             <!-- Send to customer service -->
                             <http.post configKey="ExternalSOAPService">
                                 <relativePath>/customerService</relativePath>
-                                <headers>[{"Content-Type":"text/xml"}, {"SOAPAction":"create_customer"}]</headers>
+                                <headers>[["Content-Type","text/xml"], ["SOAPAction","create_customer"]]</headers>
                                 <requestBodyType>XML</requestBodyType>
                                 <requestBodyXml>${xpath('$body/node()')}</requestBodyXml>
                                 <forceScAccepted>false</forceScAccepted>
@@ -63,11 +65,38 @@
                                 <forceHttp10>false</forceHttp10>
                                 <noKeepAlive>false</noKeepAlive>
                                 <forcePostPutNobody>false</forcePostPutNobody>
-                                <responseVariable>http_post_644</responseVariable>
+                                <responseVariable>soapResponse</responseVariable>
                                 <overwriteBody>true</overwriteBody>
                             </http.post>
                             <log category="INFO">
-                                <message>Customer service response: ${payload}</message>
+                                <message>Customer service SOAP response: ${payload}</message>
+                            </log>
+                            <!-- Convert SOAP response to JSON -->
+                            <variable name="status" type="STRING" expression="${xpath('//create_customer_response/status/text()')}"/>
+                            <variable name="customerId" type="STRING" expression="${xpath('//create_customer_response/customer_id/text()')}"/>
+                            <variable name="message" type="STRING" expression="${xpath('//create_customer_response/message/text()')}"/>
+                            <variable name="detectedDistrict" type="STRING" expression="${xpath('//location_info/detected_district/text()')}"/>
+                            <variable name="matchType" type="STRING" expression="${xpath('//location_info/match_type/text()')}"/>
+                            <variable name="matchedText" type="STRING" expression="${xpath('//location_info/matched_text/text()')}"/>
+                            <variable name="autoDetected" type="STRING" expression="${xpath('//location_info/auto_detected/text()')}"/>
+                            <!-- Create JSON response -->
+                            <payloadFactory media-type="json">
+                                <format>
+                                    {
+                                    "status": "${vars.status}",
+                                    "customer_id": "${vars.customerId}",
+                                    "message": "${vars.message}",
+                                    "location_info": {
+                                    "detected_district": "${vars.detectedDistrict}",
+                                    "match_type": "${vars.matchType}",
+                                    "matched_text": "${vars.matchedText}",
+                                    "auto_detected": ${vars.autoDetected}
+                                    }
+                                    }
+                                </format>
+                            </payloadFactory>
+                            <log category="INFO">
+                                <message>Converted customer service response to JSON: ${payload}</message>
                             </log>
                         </case>
                         <case regex="driver">

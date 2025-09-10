@@ -30,7 +30,9 @@
                             <log category="INFO">
                                 <message>Processing order: ${vars.orderData.orderID}</message>
                             </log>
-                            <!-- Create proper SOAP request -->
+                            <!-- Convert items array to XML format -->
+                            <variable name="itemsXml" type="STRING" expression="${vars.orderData.items}"/>
+                            <!-- Create proper SOAP request with formatted items -->
                             <payloadFactory media-type="xml">
                                 <format>
                                     <![CDATA[<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
@@ -40,15 +42,26 @@
                                                 <customer_id>${vars.orderData.customer_id}</customer_id>
                                                 <priority>${vars.orderData.priority}</priority>
                                                 <totalAmount>${vars.orderData.totalAmount}</totalAmount>
-                                                <items>${vars.orderData.items}</items>
+                                                    <item>
+                                                        <product_id>${vars.orderData.items[0].product_id}</product_id>
+                                                        <name>${vars.orderData.items[0].name}</name>
+                                                        <quantity>${vars.orderData.items[0].quantity}</quantity>
+                                                        <price>${vars.orderData.items[0].price}</price>
+                                                    </item>
+                                                    <item>
+                                                        <product_id>${vars.orderData.items[1].product_id}</product_id>
+                                                        <name>${vars.orderData.items[1].name}</name>
+                                                        <quantity>${vars.orderData.items[1].quantity}</quantity>
+                                                        <price>${vars.orderData.items[1].price}</price>
+                                                    </item>
                                             </create_order>
                                         </soap:Body>
                                     </soap:Envelope>]]>
                                 </format>
                             </payloadFactory>
                             <!-- Log the complete request details before sending -->
-                            <log category="INFO">
-                                <message>About to send request to external SOAP service</message>
+                            <log category="INFO" logMessageID="false" logFullPayload="false">
+                                <message>About to send request to external SOAP serviceOrder Data: ${vars.orderData}</message>
                             </log>
                             <log category="INFO">
                                 <message>Request Body: ${xpath('$body/node()')}</message>
