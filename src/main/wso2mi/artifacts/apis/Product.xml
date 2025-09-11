@@ -105,4 +105,41 @@
             <respond/>
         </faultSequence>
     </resource>
+    <resource methods="POST" uri-template="/decrement-count">
+        <inSequence>
+            <log category="INFO">
+                <message>Received decrement count request: ${payload}</message>
+            </log>
+            <http.post configKey="ProductServiceConnection">
+                <relativePath>/api/products/decrement-count</relativePath>
+                <headers>[["Content-Type","application/json"]]</headers>
+                <requestBodyType>JSON</requestBodyType>
+                <requestBodyJson>${payload}</requestBodyJson>
+                <forceScAccepted>false</forceScAccepted>
+                <disableChunking>false</disableChunking>
+                <forceHttp10>false</forceHttp10>
+                <noKeepAlive>false</noKeepAlive>
+                <forcePostPutNobody>false</forcePostPutNobody>
+                <forceHttpContentLength>false</forceHttpContentLength>
+            </http.post>
+            <log category="INFO">
+                <message>Decrement count response: ${payload}</message>
+            </log>
+            <respond/>
+        </inSequence>
+        <faultSequence>
+            <log category="ERROR">
+                <message>Error decrementing product count: ${props.synapse.ERROR_MESSAGE}</message>
+            </log>
+            <payloadFactory media-type="json">
+                <format>
+                    {
+                    "status": "error",
+                    "message": "Failed to decrement product count"
+                    }
+                </format>
+            </payloadFactory>
+            <respond/>
+        </faultSequence>
+    </resource>
 </api>
