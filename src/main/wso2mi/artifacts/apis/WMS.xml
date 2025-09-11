@@ -260,6 +260,7 @@
                     <variable name="responseOrderID" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.orderID}"/>
                     <variable name="customerId" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.customer_id}"/>
                     <variable name="customerName" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.customer_name}"/>
+                    <variable name="totalAmount" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.totalAmount}"/>
                     <variable name="customerPhone" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.customer_phone}"/>
                     <variable name="priority" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.priority}"/>
                     <variable name="orderStatus" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.order_status}"/>
@@ -268,7 +269,7 @@
                     <variable name="longitude" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.delivery_location.longitude}"/>
                     <variable name="message" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.message}"/>
                     <!-- Create clean JSON response payload -->
-                    <payloadFactory media-type="json">
+                    <payloadFactory media-type="json" template-type="default">
                         <format>
                             {
                             "status": "${vars.status}",
@@ -279,7 +280,7 @@
                             "priority": "${vars.priority}",
                             "order_status": "${vars.orderStatus}",
                             "delivery_location": {
-                            "address": "${vars.address}",
+                            "address": "${vars.address}","totalAmount":"${vars.totalAmount}",
                             "latitude": "${vars.latitude}",
                             "longitude": "${vars.longitude}"
                             },
@@ -291,20 +292,19 @@
                         <message>Final clean JSON response: ${payload}</message>
                     </log>
                     <!-- Third: Send to ROS service with required format -->
-                    <payloadFactory media-type="json">
+                    <payloadFactory media-type="json" template-type="default">
                         <format>
                             {
                             "order_id": "${vars.responseOrderID}",
                             "customer_name": "${vars.customerName}",
-                            "customer_phone": "${vars.customerPhone}",
+                            "customer_phone": "${vars.customerPhone}","totalAmount":"${vars.totalAmount}",
                             "delivery_address": {
                             "address": "${vars.address}",
                             "latitude": ${vars.latitude},
                             "longitude": ${vars.longitude}
                             },
                             "priority": "${vars.priority}",
-                            "driver_id": "0Ijt6CdmYnW7aGtjg6TxQLGeOZ93",
-                            "status": "on_delivery"
+                            "status": "ready-to-deliver"
                             }
                         </format>
                     </payloadFactory>
