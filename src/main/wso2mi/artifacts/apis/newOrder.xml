@@ -27,8 +27,8 @@
                         </sequence>
                         <!-- Second Path: Transform and send to external service -->
                         <sequence>
-                            <log category="INFO">
-                                <message>Processing order: ${vars.orderData.orderID}</message>
+                            <log category="INFO" logMessageID="false" logFullPayload="false">
+                                <message>Processing order: ${vars.orderData.orderID}&lt;br&gt;</message>
                             </log>
                             <!-- Convert items array to XML format -->
                             <variable name="itemsXml" type="STRING" expression="${vars.orderData.items}"/>
@@ -101,22 +101,186 @@
                             <log category="INFO">
                                 <message>External service response received: ${payload}</message>
                             </log>
-                            <!-- Extract the orderId from SOAP response -->
-                            <variable name="receivedOrderId" expression="${xpath('//new_package_response/text()')}" type="STRING"/>
-                            <log category="INFO">
-                                <message>Extracted orderId: ${vars.receivedOrderId}</message>
-                            </log>
-                            <!-- Make REST call to second service -->
-                            <payloadFactory media-type="json">
-                                <format>
-                                    {
-                                    "orderId": "${vars.receivedOrderId}",
-                                    "customerId": "${vars.orderData.customer_id}",
-                                    "totalAmount": "${vars.orderData.totalAmount}",
-                                    "items": ${vars.orderData.items}
-                                    }
-                                </format>
-                            </payloadFactory>
+                            <switch source="${vars.orderData.itemsCount}">
+                                <case regex="1">
+                                    <payloadFactory media-type="json" template-type="default">
+                                        <format>
+                                            {
+                                            "orderId": "${vars.orderData.orderID}",
+                                            "totalAmount": "${vars.orderData.totalAmount}",
+                                            "priority": "${vars.orderData.priority}",
+                                            "items": [
+                                            {
+                                            "itemId": "${vars.orderData.items[0].product_id}",
+                                            "quantity": ${vars.orderData.items[0].quantity},
+                                            "price": ${vars.orderData.items[0].price}
+                                            }
+                                            ]
+                                            }
+                                        </format>
+                                    </payloadFactory>
+                                </case>
+                                <case regex="2">
+                                    <payloadFactory media-type="json" template-type="default">
+                                        <format>
+                                            {
+                                            "orderId": "${vars.orderData.orderID}",
+                                            "totalAmount": "${vars.orderData.totalAmount}",
+                                            "priority": "${vars.orderData.priority}",
+                                            "items": [
+                                            {
+                                            "itemId": "${vars.orderData.items[0].product_id}",
+                                            "quantity": ${vars.orderData.items[0].quantity},
+                                            "price": ${vars.orderData.items[0].price}
+                                            },
+                                            {
+                                            "itemId": "${vars.orderData.items[1].product_id}",
+                                            "quantity": ${vars.orderData.items[1].quantity},
+                                            "price": ${vars.orderData.items[1].price}
+                                            }
+                                            ]
+                                            }
+                                        </format>
+                                    </payloadFactory>
+                                </case>
+                                <case regex="3">
+                                    <payloadFactory media-type="json" template-type="default">
+                                        <format>
+                                            {
+                                            "orderId": "${vars.orderData.orderID}",
+                                            "totalAmount": "${vars.orderData.totalAmount}",
+                                            "priority": "${vars.orderData.priority}",
+                                            "items": [
+                                            {
+                                            "itemId": "${vars.orderData.items[0].product_id}",
+                                            "quantity": ${vars.orderData.items[0].quantity},
+                                            "price": ${vars.orderData.items[0].price}
+                                            },
+                                            {
+                                            "itemId": "${vars.orderData.items[1].product_id}",
+                                            "quantity": ${vars.orderData.items[1].quantity},
+                                            "price": ${vars.orderData.items[1].price}
+                                            },
+                                            {
+                                            "itemId": "${vars.orderData.items[2].product_id}",
+                                            "quantity": ${vars.orderData.items[2].quantity},
+                                            "price": ${vars.orderData.items[2].price}
+                                            }
+                                            ]
+                                            }
+                                        </format>
+                                    </payloadFactory>
+                                </case>
+                                <case regex="4">
+                                    <payloadFactory media-type="json" template-type="default">
+                                        <format>
+                                            {
+                                            "orderId": "${vars.orderData.orderID}",
+                                            "totalAmount": "${vars.orderData.totalAmount}",
+                                            "priority": "${vars.orderData.priority}",
+                                            "items": [
+                                            {
+                                            "itemId": "${vars.orderData.items[0].product_id}",
+                                            "quantity": ${vars.orderData.items[0].quantity},
+                                            "price": ${vars.orderData.items[0].price}
+                                            },
+                                            {
+                                            "itemId": "${vars.orderData.items[1].product_id}",
+                                            "quantity": ${vars.orderData.items[1].quantity},
+                                            "price": ${vars.orderData.items[1].price}
+                                            },
+                                            {
+                                            "itemId": "${vars.orderData.items[2].product_id}",
+                                            "quantity": ${vars.orderData.items[2].quantity},
+                                            "price": ${vars.orderData.items[2].price}
+                                            },
+                                            {
+                                            "itemId": "${vars.orderData.items[3].product_id}",
+                                            "quantity": ${vars.orderData.items[3].quantity},
+                                            "price": ${vars.orderData.items[3].price}
+                                            }
+                                            ]
+                                            }
+                                        </format>
+                                    </payloadFactory>
+                                </case>
+                                <case regex="5">
+                                    <payloadFactory media-type="json" template-type="default">
+                                        <format>
+                                            {
+                                            "orderId": "${vars.orderData.orderID}",
+                                            "totalAmount": "${vars.orderData.totalAmount}",
+                                            "priority": "${vars.orderData.priority}",
+                                            "items": [
+                                            {
+                                            "itemId": "${vars.orderData.items[0].product_id}",
+                                            "quantity": ${vars.orderData.items[0].quantity},
+                                            "price": ${vars.orderData.items[0].price}
+                                            },
+                                            {
+                                            "itemId": "${vars.orderData.items[1].product_id}",
+                                            "quantity": ${vars.orderData.items[1].quantity},
+                                            "price": ${vars.orderData.items[1].price}
+                                            },
+                                            {
+                                            "itemId": "${vars.orderData.items[2].product_id}",
+                                            "quantity": ${vars.orderData.items[2].quantity},
+                                            "price": ${vars.orderData.items[2].price}
+                                            },
+                                            {
+                                            "itemId": "${vars.orderData.items[3].product_id}",
+                                            "quantity": ${vars.orderData.items[3].quantity},
+                                            "price": ${vars.orderData.items[3].price}
+                                            },
+                                            {
+                                            "itemId": "${vars.orderData.items[4].product_id}",
+                                            "quantity": ${vars.orderData.items[4].quantity},
+                                            "price": ${vars.orderData.items[4].price}
+                                            }
+                                            ]
+                                            }
+                                        </format>
+                                    </payloadFactory>
+                                </case>
+                                <default>
+                                    <payloadFactory media-type="json" template-type="default">
+                                        <format>
+                                            {
+                                            "orderId": "${vars.orderData.orderID}",
+                                            "totalAmount": "${vars.orderData.totalAmount}",
+                                            "priority": "${vars.orderData.priority}",
+                                            "items": [
+                                            {
+                                            "itemId": "${vars.orderData.items[0].product_id}",
+                                            "quantity": ${vars.orderData.items[0].quantity},
+                                            "price": ${vars.orderData.items[0].price}
+                                            },
+                                            {
+                                            "itemId": "${vars.orderData.items[1].product_id}",
+                                            "quantity": ${vars.orderData.items[1].quantity},
+                                            "price": ${vars.orderData.items[1].price}
+                                            },
+                                            {
+                                            "itemId": "${vars.orderData.items[2].product_id}",
+                                            "quantity": ${vars.orderData.items[2].quantity},
+                                            "price": ${vars.orderData.items[2].price}
+                                            },
+                                            {
+                                            "itemId": "${vars.orderData.items[3].product_id}",
+                                            "quantity": ${vars.orderData.items[3].quantity},
+                                            "price": ${vars.orderData.items[3].price}
+                                            },
+                                            {
+                                            "itemId": "${vars.orderData.items[4].product_id}",
+                                            "quantity": ${vars.orderData.items[4].quantity},
+                                            "price": ${vars.orderData.items[4].price}
+                                            }
+                                            ]
+                                            }
+                                        </format>
+                                    </payloadFactory>
+                                </default>
+                            </switch><!-- Extract the orderId from SOAP response -->
                             <log category="INFO">
                                 <message>Sending REST request to second service: ${payload}</message>
                             </log>
