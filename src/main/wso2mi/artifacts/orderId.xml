@@ -1,0 +1,67 @@
+<resource methods="POST" uri-template="/ready-to-deliver">
+    <inSequence>
+        <log category="INFO">
+            <message>Received ready-to-deliver request: ${payload}</message>
+        </log>
+        <!-- Validate required fields -->
+        <filter xpath="${exists(payload.order_id) and exists(payload.status) and payload.status == 'ready-to-deliver'}">
+            <then>
+                <!-- Store the order_id before making HTTP calls -->
+                <variable name="orderId" type="STRING" expression="${payload.order_id}"/>
+                <!-- Send update to middleware with ready-to-deliver status -->
+                <payloadFactory media-type="json">
+                    <format>
+                        {
+                        "orderID": "${vars.orderId}",
+                        "status": "ready-to-deliver"
+                        }
+                    </format>
+                </payloadFactory>
+                <http.post configKey="Middleware">
+                    <relativePath>/wms/updateStatus</relativePath>
+                    <headers>[["Content-Type","application/json"]]</headers>
+                    <requestBodyType>JSON</requestBodyType>
+                    <requestBodyJson>${payload}</requestBodyJson>
+                    <forceScAccepted>false</forceScAccepted>
+                    <disableChunking>false</disableChunking>
+                    <forceHttp10>false</forceHttp10>
+                    <noKeepAlive>false</noKeepAlive>
+                    <forcePostPutNobody>false</forcePostPutNobody>
+                    <forceHttpContentLength>false</forceHttpContentLength>
+                </http.post>
+                <log category="INFO">
+                    <message>Ready-to-deliver status update response: ${payload}</message>
+                </log>
+                <respond/>
+            </then>
+            <else>
+                <log category="ERROR">
+                    <message>Invalid request for ready-to-deliver</message>
+                </log>
+                <payloadFactory media-type="json">
+                    <format>
+                        {
+                        "status": "error",
+                        "message": "Invalid request: order_id is required and status must be 'ready-to-deliver'"
+                        }
+                    </format>
+                </payloadFactory>
+                <respond/>
+            </else>
+        </filter>
+    </inSequence>
+    <faultSequence>
+        <log category="ERROR">
+            <message>Error occurred during ready-to-deliver: ${props.synapse.ERROR_MESSAGE}</message>
+        </log>
+        <payloadFactory media-type="json">
+            <format>
+                {
+                "status": "error",
+                "message": "Failed to process ready-to-deliver request"
+                }
+            </format>
+        </payloadFactory>
+        <respond/>
+    </faultSequence>
+</resource>

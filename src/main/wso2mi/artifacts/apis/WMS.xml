@@ -187,4 +187,173 @@
             <respond/>
         </faultSequence>
     </resource>
+    <resource methods="POST" uri-template="/ready-to-deliver">
+        <inSequence>
+            <log category="INFO">
+                <message>Received ready-to-deliver request: ${payload}</message>
+            </log>
+            <!-- Validate required fields -->
+            <filter xpath="${exists(payload.order_id) and exists(payload.status)}">
+                <then>
+                    <!-- Store the order_id before making HTTP calls -->
+                    <variable name="orderId" type="STRING" expression="${payload.order_id}"/>
+                    <!-- First: Send update to middleware with ready-to-deliver status -->
+                    <payloadFactory media-type="json">
+                        <format>
+                            {
+                            "orderID": "${vars.orderId}",
+                            "status": "ready-to-deliver"
+                            }
+                        </format>
+                    </payloadFactory>
+                    <http.post configKey="Middleware">
+                        <relativePath>/wms/updateStatus</relativePath>
+                        <headers>[["Content-Type","application/json"]]</headers>
+                        <requestBodyType>JSON</requestBodyType>
+                        <requestBodyJson>${payload}</requestBodyJson>
+                        <forceScAccepted>false</forceScAccepted>
+                        <disableChunking>false</disableChunking>
+                        <forceHttp10>false</forceHttp10>
+                        <noKeepAlive>false</noKeepAlive>
+                        <forcePostPutNobody>false</forcePostPutNobody>
+                        <forceHttpContentLength>false</forceHttpContentLength>
+                    </http.post>
+                    <log category="INFO">
+                        <message>Middleware update response: ${payload}</message>
+                    </log>
+                    <!-- Second: Call external SOAP service to get delivery location -->
+                    <payloadFactory media-type="xml">
+                        <format>
+                            <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+                                <soap:Body>
+                                    <get_delivery_location>
+                                        <orderID>${vars.orderId}</orderID>
+                                    </get_delivery_location>
+                                </soap:Body>
+                            </soap:Envelope>
+                        </format>
+                    </payloadFactory>
+                    <http.post configKey="ExternalSOAPService">
+                        <relativePath>/getDeliveryLocation</relativePath>
+                        <headers>[["Content-Type","text/xml"], ["SOAPAction","get_delivery_location"]]</headers>
+                        <requestBodyType>XML</requestBodyType>
+                        <requestBodyXml>${xpath('$body/node()')}</requestBodyXml>
+                        <forceScAccepted>false</forceScAccepted>
+                        <disableChunking>false</disableChunking>
+                        <forceHttp10>false</forceHttp10>
+                        <noKeepAlive>false</noKeepAlive>
+                        <forcePostPutNobody>false</forcePostPutNobody>
+                        <forceHttpContentLength>false</forceHttpContentLength>
+                    </http.post>
+                    <log category="INFO">
+                        <message>SOAP delivery location response: ${payload}</message>
+                    </log>
+                    <!-- Convert XML response to JSON -->
+                    <jsontransform>
+                        <property name="direction" value="xmltojson"/>
+                    </jsontransform>
+                    <log category="INFO">
+                        <message>Converted JSON response: ${payload}</message>
+                    </log>
+                    <!-- Extract data from the converted JSON and create clean response -->
+                    <variable name="status" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.status}"/>
+                    <variable name="responseOrderID" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.orderID}"/>
+                    <variable name="customerId" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.customer_id}"/>
+                    <variable name="customerName" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.customer_name}"/>
+                    <variable name="customerPhone" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.customer_phone}"/>
+                    <variable name="priority" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.priority}"/>
+                    <variable name="orderStatus" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.order_status}"/>
+                    <variable name="address" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.delivery_location.address}"/>
+                    <variable name="latitude" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.delivery_location.latitude}"/>
+                    <variable name="longitude" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.delivery_location.longitude}"/>
+                    <variable name="message" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.message}"/>
+                    <!-- Create clean JSON response payload -->
+                    <payloadFactory media-type="json">
+                        <format>
+                            {
+                            "status": "${vars.status}",
+                            "orderID": "${vars.responseOrderID}",
+                            "customer_id": "${vars.customerId}",
+                            "customer_name": "${vars.customerName}",
+                            "customer_phone": "${vars.customerPhone}",
+                            "priority": "${vars.priority}",
+                            "order_status": "${vars.orderStatus}",
+                            "delivery_location": {
+                            "address": "${vars.address}",
+                            "latitude": "${vars.latitude}",
+                            "longitude": "${vars.longitude}"
+                            },
+                            "message": "${vars.message}"
+                            }
+                        </format>
+                    </payloadFactory>
+                    <log category="INFO">
+                        <message>Final clean JSON response: ${payload}</message>
+                    </log>
+                    <!-- Third: Send to ROS service with required format -->
+                    <payloadFactory media-type="json">
+                        <format>
+                            {
+                            "order_id": "${vars.responseOrderID}",
+                            "customer_name": "${vars.customerName}",
+                            "customer_phone": "${vars.customerPhone}",
+                            "delivery_address": {
+                            "address": "${vars.address}",
+                            "latitude": ${vars.latitude},
+                            "longitude": ${vars.longitude}
+                            },
+                            "priority": "${vars.priority}",
+                            "driver_id": "0Ijt6CdmYnW7aGtjg6TxQLGeOZ93",
+                            "status": "on_delivery"
+                            }
+                        </format>
+                    </payloadFactory>
+                    <http.post configKey="ROSConnection">
+                        <relativePath>/orders/ready-to-deliver</relativePath>
+                        <headers>[["Content-Type","application/json"]]</headers>
+                        <requestBodyType>JSON</requestBodyType>
+                        <requestBodyJson>${payload}</requestBodyJson>
+                        <forceScAccepted>false</forceScAccepted>
+                        <disableChunking>false</disableChunking>
+                        <forceHttp10>false</forceHttp10>
+                        <noKeepAlive>false</noKeepAlive>
+                        <forcePostPutNobody>false</forcePostPutNobody>
+                        <forceHttpContentLength>false</forceHttpContentLength>
+                    </http.post>
+                    <log category="INFO">
+                        <message>ROS ready-to-deliver response: ${payload}</message>
+                    </log>
+                    <respond/>
+                </then>
+                <else>
+                    <log category="ERROR">
+                        <message>Invalid request for ready-to-deliver</message>
+                    </log>
+                    <payloadFactory media-type="json">
+                        <format>
+                            {
+                            "status": "error",
+                            "message": "Invalid request: order_id is required and status must be 'ready-to-deliver'"
+                            }
+                        </format>
+                    </payloadFactory>
+                    <respond/>
+                </else>
+            </filter>
+        </inSequence>
+        <faultSequence>
+            <log category="ERROR">
+                <message>Error occurred during ready-to-deliver: ${props.synapse.ERROR_MESSAGE}</message>
+            </log>
+            <payloadFactory media-type="json">
+                <format>
+                    {
+                    "status": "error",
+                    "message": "Failed to process ready-to-deliver request"
+                    }
+                </format>
+            </payloadFactory>
+            <respond/>
+        </faultSequence>
+    </resource>
 </api>
