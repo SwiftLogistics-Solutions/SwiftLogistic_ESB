@@ -47,30 +47,35 @@
                                                         <name>${vars.orderData.items[0].name}</name>
                                                         <quantity>${vars.orderData.items[0].quantity}</quantity>
                                                         <price>${vars.orderData.items[0].price}</price>
+                                                        <image>${vars.orderData.items[0].image}</image>
                                                     </item>
                                                     <item>
                                                         <product_id>${vars.orderData.items[1].product_id}</product_id>
                                                         <name>${vars.orderData.items[1].name}</name>
                                                         <quantity>${vars.orderData.items[1].quantity}</quantity>
                                                         <price>${vars.orderData.items[1].price}</price>
+                                                        <image>${vars.orderData.items[1].image}</image>
                                                     </item>
                                                     <item>
                                                         <product_id>${vars.orderData.items[2].product_id}</product_id>
                                                         <name>${vars.orderData.items[2].name}</name>
                                                         <quantity>${vars.orderData.items[2].quantity}</quantity>
                                                         <price>${vars.orderData.items[2].price}</price>
+                                                        <image>${vars.orderData.items[2].image}</image>
                                                     </item>
                                                     <item>
                                                         <product_id>${vars.orderData.items[3].product_id}</product_id>
                                                         <name>${vars.orderData.items[3].name}</name>
                                                         <quantity>${vars.orderData.items[3].quantity}</quantity>
                                                         <price>${vars.orderData.items[3].price}</price>
+                                                        <image>${vars.orderData.items[3].image}</image>
                                                     </item>
                                                     <item>
                                                         <product_id>${vars.orderData.items[4].product_id}</product_id>
                                                         <name>${vars.orderData.items[4].name}</name>
                                                         <quantity>${vars.orderData.items[4].quantity}</quantity>
                                                         <price>${vars.orderData.items[4].price}</price>
+                                                        <image>${vars.orderData.items[4].image}</image>
                                                     </item>
                                             </create_order>
                                         </soap:Body>
