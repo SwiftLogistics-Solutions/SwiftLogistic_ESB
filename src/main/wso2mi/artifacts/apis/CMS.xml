@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/cms" name="CMS" xmlns="http://ws.apache.org/ns/synapse">
+    <resource methods="GET" uri-template="/getOrders/{customerID}">
+        <inSequence>
+            <log category="INFO">
+                <message>Fetching orders for customer: ${params.pathParams.customerID}</message>
+            </log>
+            <!-- Call external service -->
+            <http.get configKey="ExternalSOAPService">
+                <relativePath>/getOrders/${params.pathParams.customerID}</relativePath>
+                <headers>[]</headers>
+                <forceScAccepted>false</forceScAccepted>
+                <disableChunking>false</disableChunking>
+                <forceHttp10>false</forceHttp10>
+                <noKeepAlive>false</noKeepAlive>
+                <forcePostPutNobody>false</forcePostPutNobody>
+                <forceHttpContentLength>false</forceHttpContentLength>
+            </http.get>
+            <log category="INFO">
+                <message>Raw XML response: ${payload}</message>
+            </log>
+            <!-- Convert XML response to JSON -->
+            <jsontransform>
+                <property name="direction" value="xmltojson"/>
+            </jsontransform>
+            <log category="INFO">
+                <message>After JSON transform: ${payload}</message>
+            </log>
+            <!-- Extract data using Synapse expressions -->
+            <variable name="status" type="STRING" expression="${payload.Envelope.Body.get_orders_response.status}"/>
+            <variable name="customerId" type="STRING" expression="${payload.Envelope.Body.get_orders_response.customer_id}"/>
+            <variable name="ordersCount" type="STRING" expression="${payload.Envelope.Body.get_orders_response.orders_count}"/>
+            <variable name="ordersArray" type="JSON" expression="${payload.Envelope.Body.get_orders_response.orders.order}"/>
+            <!-- Create clean JSON response with orders as proper array -->
+            <payloadFactory media-type="json">
+                <format>
+                    {
+                    "status": "${vars.status}",
+                    "customer_id": "${vars.customerId}",
+                    "orders_count": ${vars.ordersCount},
+                    "orders": ${vars.ordersArray}
+                    }
+                </format>
+            </payloadFactory>
+            <log category="INFO">
+                <message>Final JSON response: ${payload}</message>
+            </log>
+            <respond/>
+        </inSequence>
+        <faultSequence>
+            <log category="ERROR">
+                <message>Error fetching orders: ${props.synapse.ERROR_MESSAGE}</message>
+            </log>
+            <payloadFactory media-type="json">
+                <format>
+                    {
+                    "status": "error",
+                    "message": "Failed to fetch orders",
+                    "error_details": "${props.synapse.ERROR_MESSAGE}"
+                    }
+                </format>
+            </payloadFactory>
+            <respond/>
+        </faultSequence>
+    </resource>
+</api>

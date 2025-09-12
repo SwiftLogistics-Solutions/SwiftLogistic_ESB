@@ -1,0 +1,296 @@
+<api context="/auth" name="Auth" xmlns="http://ws.apache.org/ns/synapse">
+    <resource methods="POST" uri-template="/signup">
+        <inSequence>
+            <log category="INFO">
+                <message>Received signup request: ${payload}</message>
+            </log>
+            <!-- Validate required fields -->
+            <filter xpath="${exists(payload.name) and exists(payload.email) and exists(payload.password) and exists(payload.confirmPassword) and exists(payload.role)}">
+                <then>
+                    <!-- Store original payload for later use -->
+                    <variable name="originalPayload" expression="${payload}" type="JSON"/>
+                    <!-- First call to auth service -->
+                    <http.post configKey="AuthServiceConnection">
+                        <relativePath>/api/users/signup</relativePath>
+                        <headers>[["Content-Type","application/json"]]</headers>
+                        <requestBodyType>JSON</requestBodyType>
+                        <requestBodyJson>${payload}</requestBodyJson>
+                        <responseVariable>authResponse</responseVariable>
+                        <overwriteBody>false</overwriteBody>
+                        <forceScAccepted>false</forceScAccepted>
+                        <disableChunking>false</disableChunking>
+                        <forceHttp10>false</forceHttp10>
+                        <noKeepAlive>false</noKeepAlive>
+                        <forcePostPutNobody>false</forcePostPutNobody>
+                        <forceHttpContentLength>false</forceHttpContentLength>
+                    </http.post>
+                    <log category="INFO">
+                        <message>Auth service response: ${vars.authResponse}</message>
+                    </log>
+                    <!-- Extract firebaseUID from auth response -->
+                    <variable name="firebaseUID" type="STRING" expression="${vars.authResponse.payload.user.uid}"/>
+                    <!-- Check role and route accordingly -->
+                    <switch source="${vars.originalPayload.role}">
+                        <case regex="customer">
+                            <log category="INFO">
+                                <message>Processing customer signup with firebaseUID: ${vars.firebaseUID}</message>
+                            </log>
+                            <!-- Create SOAP request for customer service -->
+                            <payloadFactory media-type="xml">
+                                <format>
+                                    <![CDATA[<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+                                        <soap:Body>
+                                            <create_customer>
+                                                <firebaseUID>${vars.firebaseUID}</firebaseUID>
+                                                <name>${vars.originalPayload.name}</name>
+                                                <email>${vars.originalPayload.email}</email>
+                                                <phone>${vars.originalPayload.phone}</phone>
+                                                <address>${vars.originalPayload.address}</address>
+                                            </create_customer>
+                                        </soap:Body>
+                                    </soap:Envelope>]]>
+                                </format>
+                            </payloadFactory>
+                            <log category="INFO" logMessageID="false" logFullPayload="false">
+                                <message>Request body:${xpath('$body/node()')}</message>
+                            </log>
+                            <!-- Send to customer service -->
+                            <http.post configKey="ExternalSOAPService">
+                                <relativePath>/customerService</relativePath>
+                                <headers>[["Content-Type","text/xml"], ["SOAPAction","create_customer"]]</headers>
+                                <requestBodyType>XML</requestBodyType>
+                                <requestBodyXml>${xpath('$body/node()')}</requestBodyXml>
+                                <forceScAccepted>false</forceScAccepted>
+                                <disableChunking>false</disableChunking>
+                                <forceHttp10>false</forceHttp10>
+                                <noKeepAlive>false</noKeepAlive>
+                                <forcePostPutNobody>false</forcePostPutNobody>
+                                <responseVariable>soapResponse</responseVariable>
+                                <overwriteBody>true</overwriteBody>
+                            </http.post>
+                            <log category="INFO">
+                                <message>Customer service SOAP response: ${payload}</message>
+                            </log>
+                            <!-- Convert SOAP response to JSON -->
+                            <variable name="status" type="STRING" expression="${xpath('//create_customer_response/status/text()')}"/>
+                            <variable name="customerId" type="STRING" expression="${xpath('//create_customer_response/customer_id/text()')}"/>
+                            <variable name="message" type="STRING" expression="${xpath('//create_customer_response/message/text()')}"/>
+                            <variable name="detectedDistrict" type="STRING" expression="${xpath('//location_info/detected_district/text()')}"/>
+                            <variable name="matchType" type="STRING" expression="${xpath('//location_info/match_type/text()')}"/>
+                            <variable name="matchedText" type="STRING" expression="${xpath('//location_info/matched_text/text()')}"/>
+                            <variable name="autoDetected" type="STRING" expression="${xpath('//location_info/auto_detected/text()')}"/>
+                            <!-- Create JSON response -->
+                            <payloadFactory media-type="json">
+                                <format>
+                                    {
+                                    "status": "${vars.status}",
+                                    "customer_id": "${vars.customerId}",
+                                    "message": "${vars.message}",
+                                    "location_info": {
+                                    "detected_district": "${vars.detectedDistrict}",
+                                    "match_type": "${vars.matchType}",
+                                    "matched_text": "${vars.matchedText}",
+                                    "auto_detected": ${vars.autoDetected}
+                                    }
+                                    }
+                                </format>
+                            </payloadFactory>
+                            <log category="INFO">
+                                <message>Converted customer service response to JSON: ${payload}</message>
+                            </log>
+                        </case>
+                        <case regex="driver">
+                            <log category="INFO">
+                                <message>Processing driver signup with firebaseUID: ${vars.firebaseUID}</message>
+                            </log>
+                            <!-- Create JSON request for driver service -->
+                            <payloadFactory media-type="json">
+                                <format>
+                                    {
+                                    "firebaseUID": "${vars.firebaseUID}",
+                                    "name": "${vars.originalPayload.name}",
+                                    "email": "${vars.originalPayload.email}",
+                                    "phone": "${vars.originalPayload.phone}",
+                                    "address": "${vars.originalPayload.address}"
+                                    }
+                                </format>
+                            </payloadFactory>
+                            <!-- Send to driver service -->
+                            <http.post configKey="ROSConnection">
+                                <relativePath>/drivers/signup</relativePath>
+                                <headers>[["Content-Type","application/json"]]</headers>
+                                <requestBodyType>JSON</requestBodyType>
+                                <requestBodyJson>${payload}</requestBodyJson>
+                                <forceScAccepted>false</forceScAccepted>
+                                <disableChunking>false</disableChunking>
+                                <forceHttp10>false</forceHttp10>
+                                <noKeepAlive>false</noKeepAlive>
+                                <forcePostPutNobody>false</forcePostPutNobody>
+                                <forceHttpContentLength>false</forceHttpContentLength>
+                            </http.post>
+                            <log category="INFO">
+                                <message>Driver service response: ${payload}</message>
+                            </log>
+                        </case>
+                        <default>
+                            <log category="ERROR">
+                                <message>Invalid role: ${vars.originalPayload.role}</message>
+                            </log>
+                            <payloadFactory media-type="json">
+                                <format>
+                                    {
+                                    "status": "error",
+                                    "message": "Invalid role. Must be 'customer' or 'driver'"
+                                    }
+                                </format>
+                            </payloadFactory>
+                        </default>
+                    </switch>
+                    <respond/>
+                </then>
+                <else>
+                    <log category="ERROR">
+                        <message>Missing required fields for signup</message>
+                    </log>
+                    <payloadFactory media-type="json">
+                        <format>
+                            {
+                            "status": "error",
+                            "message": "Missing required fields: name, email, password, confirmPassword, and role"
+                            }
+                        </format>
+                    </payloadFactory>
+                    <respond/>
+                </else>
+            </filter>
+        </inSequence>
+        <faultSequence>
+            <log category="ERROR">
+                <message>Error occurred during signup: ${props.synapse.ERROR_MESSAGE}</message>
+            </log>
+            <payloadFactory media-type="json">
+                <format>
+                    {
+                    "status": "error",
+                    "message": "Signup failed"
+                    }
+                </format>
+            </payloadFactory>
+            <respond/>
+        </faultSequence>
+    </resource>
+    <resource methods="POST" uri-template="/logout">
+        <inSequence>
+            <log category="INFO">
+                <message>Received logout request: ${payload}</message>
+            </log>
+            <!-- Validate required fields -->
+            <filter xpath="${exists(payload.uid) and exists(payload.idToken)}">
+                <then>
+                    <!-- Forward logout request to external service -->
+                    <http.post configKey="AuthServiceConnection">
+                        <relativePath>/api/users/logout</relativePath>
+                        <headers>[["Content-Type","application/json"]]</headers>
+                        <requestBodyType>JSON</requestBodyType>
+                        <requestBodyJson>${payload}</requestBodyJson>
+                        <forceScAccepted>false</forceScAccepted>
+                        <disableChunking>false</disableChunking>
+                        <forceHttp10>false</forceHttp10>
+                        <noKeepAlive>false</noKeepAlive>
+                        <forcePostPutNobody>false</forcePostPutNobody>
+                        <forceHttpContentLength>false</forceHttpContentLength>
+                    </http.post>
+                    <log category="INFO">
+                        <message>Logout response: ${payload}</message>
+                    </log>
+                    <respond/>
+                </then>
+                <else>
+                    <log category="ERROR">
+                        <message>Missing required fields for logout</message>
+                    </log>
+                    <payloadFactory media-type="json">
+                        <format>
+                            {
+                            "status": "error",
+                            "message": "Missing required fields: uid and idToken"
+                            }
+                        </format>
+                    </payloadFactory>
+                    <respond/>
+                </else>
+            </filter>
+        </inSequence>
+        <faultSequence>
+            <log category="ERROR">
+                <message>Error occurred during logout: ${props.synapse.ERROR_MESSAGE}</message>
+            </log>
+            <payloadFactory media-type="json">
+                <format>
+                    {
+                    "status": "error",
+                    "message": "Logout failed"
+                    }
+                </format>
+            </payloadFactory>
+            <respond/>
+        </faultSequence>
+    </resource>
+    <resource methods="POST" uri-template="/login">
+        <inSequence>
+            <log category="INFO">
+                <message>Received login request: ${payload}</message>
+            </log>
+            <!-- Validate required fields -->
+            <filter xpath="${exists(payload.email) and exists(payload.password)}">
+                <then>
+                    <!-- Forward login request to external service -->
+                    <http.post configKey="AuthServiceConnection">
+                        <relativePath>/api/users/login</relativePath>
+                        <headers>[["Content-Type","application/json"]]</headers>
+                        <requestBodyType>JSON</requestBodyType>
+                        <requestBodyJson>${payload}</requestBodyJson>
+                        <forceScAccepted>false</forceScAccepted>
+                        <disableChunking>false</disableChunking>
+                        <forceHttp10>false</forceHttp10>
+                        <noKeepAlive>false</noKeepAlive>
+                        <forcePostPutNobody>false</forcePostPutNobody>
+                        <forceHttpContentLength>false</forceHttpContentLength>
+                    </http.post>
+                    <log category="INFO">
+                        <message>Login response: ${payload}</message>
+                    </log>
+                    <respond/>
+                </then>
+                <else>
+                    <log category="ERROR">
+                        <message>Missing required fields for login</message>
+                    </log>
+                    <payloadFactory media-type="json">
+                        <format>
+                            {
+                            "status": "error",
+                            "message": "Missing required fields: email and password"
+                            }
+                        </format>
+                    </payloadFactory>
+                    <respond/>
+                </else>
+            </filter>
+        </inSequence>
+        <faultSequence>
+            <log category="ERROR">
+                <message>Error occurred during login: ${props.synapse.ERROR_MESSAGE}</message>
+            </log>
+            <payloadFactory media-type="json">
+                <format>
+                    {
+                    "status": "error",
+                    "message": "Login failed"
+                    }
+                </format>
+            </payloadFactory>
+            <respond/>
+        </faultSequence>
+    </resource>
+</api>

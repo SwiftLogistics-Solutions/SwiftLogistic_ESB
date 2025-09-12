@@ -1,0 +1,359 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/wms" name="WMS" xmlns="http://ws.apache.org/ns/synapse">
+    <resource methods="GET" uri-template="/getOrders/{customerID}">
+        <inSequence>
+            <log category="INFO">
+                <message>Fetching orders for customer: ${params.pathParams.customerID}</message>
+            </log>
+            <!-- Call external service -->
+            <http.get configKey="ExternalSOAPService">
+                <relativePath>/getOrders/${params.pathParams.customerID}</relativePath>
+                <headers>[]</headers>
+                <forceScAccepted>false</forceScAccepted>
+                <disableChunking>false</disableChunking>
+                <forceHttp10>false</forceHttp10>
+                <noKeepAlive>false</noKeepAlive>
+                <forcePostPutNobody>false</forcePostPutNobody>
+                <forceHttpContentLength>false</forceHttpContentLength>
+            </http.get>
+            <log category="INFO">
+                <message>Raw XML response: ${payload}</message>
+            </log>
+            <!-- Convert XML response to JSON -->
+            <jsontransform>
+                <property name="direction" value="xmltojson"/>
+            </jsontransform>
+            <log category="INFO">
+                <message>After JSON transform: ${payload}</message>
+            </log>
+            <!-- Extract data using Synapse expressions -->
+            <variable name="status" type="STRING" expression="${payload.Envelope.Body.get_orders_response.status}"/>
+            <variable name="customerId" type="STRING" expression="${payload.Envelope.Body.get_orders_response.customer_id}"/>
+            <variable name="ordersCount" type="STRING" expression="${payload.Envelope.Body.get_orders_response.orders_count}"/>
+            <variable name="ordersArray" type="JSON" expression="${payload.Envelope.Body.get_orders_response.orders.order}"/>
+            <!-- Create clean JSON response with orders as proper array -->
+            <payloadFactory media-type="json">
+                <format>
+                    {
+                    "status": "${vars.status}",
+                    "customer_id": "${vars.customerId}",
+                    "orders_count": ${vars.ordersCount},
+                    "orders": ${vars.ordersArray}
+                    }
+                </format>
+            </payloadFactory>
+            <log category="INFO">
+                <message>Final JSON response: ${payload}</message>
+            </log>
+            <respond/>
+        </inSequence>
+        <faultSequence>
+            <log category="ERROR">
+                <message>Error fetching orders: ${props.synapse.ERROR_MESSAGE}</message>
+            </log>
+            <payloadFactory media-type="json">
+                <format>
+                    {
+                    "status": "error",
+                    "message": "Failed to fetch orders",
+                    "error_details": "${props.synapse.ERROR_MESSAGE}"
+                    }
+                </format>
+            </payloadFactory>
+            <respond/>
+        </faultSequence>
+    </resource>
+    <resource methods="POST" uri-template="/updateStatus">
+        <inSequence>
+            <log category="INFO">
+                <message>Received update status request: ${payload}</message>
+            </log>
+            <!-- Validate required fields -->
+            <filter xpath="${exists(payload.orderID) and exists(payload.status)}">
+                <then>
+                    <!-- Store original payload data -->
+                    <variable name="orderID" type="STRING" expression="${payload.orderID}"/>
+                    <variable name="orderStatus" type="STRING" expression="${payload.status}"/>
+                    <!-- Create SOAP request without XML declaration in CDATA -->
+                    <payloadFactory media-type="xml">
+                        <format>
+                            <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+                                <soap:Body>
+                                    <update_order_status>
+                                        <orderID>${vars.orderID}</orderID>
+                                        <status>${vars.orderStatus}</status>
+                                    </update_order_status>
+                                </soap:Body>
+                            </soap:Envelope>
+                        </format>
+                    </payloadFactory>
+                    <log category="INFO">
+                        <message>SOAP request: ${xpath('$body/node()')}</message>
+                    </log>
+                    <!-- Send to external SOAP service -->
+                    <http.post configKey="ExternalSOAPService">
+                        <relativePath>/api/updateStatus</relativePath>
+                        <headers>[["Content-Type","text/xml"], ["SOAPAction","update_order_status"]]</headers>
+                        <requestBodyType>XML</requestBodyType>
+                        <requestBodyXml>${xpath('$body/node()')}</requestBodyXml>
+                        <forceScAccepted>false</forceScAccepted>
+                        <disableChunking>false</disableChunking>
+                        <forceHttp10>false</forceHttp10>
+                        <noKeepAlive>false</noKeepAlive>
+                        <forcePostPutNobody>false</forcePostPutNobody>
+                        <forceHttpContentLength>false</forceHttpContentLength>
+                    </http.post>
+                    <log category="INFO">
+                        <message>SOAP response: ${payload}</message>
+                    </log>
+                    <!-- Extract data from SOAP response using XPath -->
+                    <variable name="responseStatus" type="STRING" expression="${xpath('//update_status_response/status/text()')}"/>
+                    <variable name="responseOrderID" type="STRING" expression="${xpath('//update_status_response/orderID/text()')}"/>
+                    <variable name="newStatus" type="STRING" expression="${xpath('//update_status_response/new_status/text()')}"/>
+                    <variable name="responseMessage" type="STRING" expression="${xpath('//update_status_response/message/text()')}"/>
+                    <!-- Send to WMS service -->
+                    <payloadFactory media-type="json" template-type="default">
+                        <format>
+                            {
+                            "orderId": "${vars.responseOrderID}",
+                            "status": "${vars.orderStatus}"
+                            }
+                        </format>
+                    </payloadFactory>
+                    <log category="INFO">
+                        <message>Sending to WMS service: ${payload}</message>
+                    </log>
+                    <http.post configKey="WMSconnection">
+                        <relativePath>/updateStatus</relativePath>
+                        <headers>[{"Content-Type":"application/json"}]</headers>
+                        <requestBodyType>JSON</requestBodyType>
+                        <requestBodyJson>${payload}</requestBodyJson>
+                        <forceScAccepted>false</forceScAccepted>
+                        <disableChunking>false</disableChunking>
+                        <forceHttp10>false</forceHttp10>
+                        <noKeepAlive>false</noKeepAlive>
+                        <forcePostPutNobody>false</forcePostPutNobody>
+                        <responseVariable>http_post_55</responseVariable>
+                        <overwriteBody>true</overwriteBody>
+                    </http.post>
+                    <log category="INFO">
+                        <message>WMS service response: ${payload}</message>
+                    </log>
+                    <!-- Create final JSON response -->
+                    <payloadFactory media-type="json">
+                        <format>
+                            {
+                            "status": "${vars.responseStatus}",
+                            "orderID": "${vars.responseOrderID}",
+                            "new_status": "${vars.newStatus}",
+                            "message": "${vars.responseMessage}"
+                            }
+                        </format>
+                    </payloadFactory>
+                    <log category="INFO">
+                        <message>Final JSON response: ${payload}</message>
+                    </log>
+                    <respond/>
+                </then>
+                <else>
+                    <log category="ERROR">
+                        <message>Missing required fields for update status</message>
+                    </log>
+                    <payloadFactory media-type="json">
+                        <format>
+                            {
+                            "status": "error",
+                            "message": "Missing required fields: orderID and status"
+                            }
+                        </format>
+                    </payloadFactory>
+                    <respond/>
+                </else>
+            </filter>
+        </inSequence>
+        <faultSequence>
+            <log category="ERROR">
+                <message>Error updating status: ${props.synapse.ERROR_MESSAGE}</message>
+            </log>
+            <payloadFactory media-type="json">
+                <format>
+                    {
+                    "status": "error",
+                    "message": "Failed to update order status",
+                    "error_details": "${props.synapse.ERROR_MESSAGE}"
+                    }
+                </format>
+            </payloadFactory>
+            <respond/>
+        </faultSequence>
+    </resource>
+    <resource methods="POST" uri-template="/ready-to-deliver">
+        <inSequence>
+            <log category="INFO">
+                <message>Received ready-to-deliver request: ${payload}</message>
+            </log>
+            <!-- Validate required fields -->
+            <filter xpath="${exists(payload.order_id) and exists(payload.status)}">
+                <then>
+                    <!-- Store the order_id before making HTTP calls -->
+                    <variable name="orderId" type="STRING" expression="${payload.order_id}"/>
+                    <!-- First: Send update to middleware with ready-to-deliver status -->
+                    <payloadFactory media-type="json">
+                        <format>
+                            {
+                            "orderID": "${vars.orderId}",
+                            "status": "ready-to-deliver"
+                            }
+                        </format>
+                    </payloadFactory>
+                    <http.post configKey="Middleware">
+                        <relativePath>/wms/updateStatus</relativePath>
+                        <headers>[["Content-Type","application/json"]]</headers>
+                        <requestBodyType>JSON</requestBodyType>
+                        <requestBodyJson>${payload}</requestBodyJson>
+                        <forceScAccepted>false</forceScAccepted>
+                        <disableChunking>false</disableChunking>
+                        <forceHttp10>false</forceHttp10>
+                        <noKeepAlive>false</noKeepAlive>
+                        <forcePostPutNobody>false</forcePostPutNobody>
+                        <forceHttpContentLength>false</forceHttpContentLength>
+                    </http.post>
+                    <log category="INFO">
+                        <message>Middleware update response: ${payload}</message>
+                    </log>
+                    <!-- Second: Call external SOAP service to get delivery location -->
+                    <payloadFactory media-type="xml">
+                        <format>
+                            <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+                                <soap:Body>
+                                    <get_delivery_location>
+                                        <orderID>${vars.orderId}</orderID>
+                                    </get_delivery_location>
+                                </soap:Body>
+                            </soap:Envelope>
+                        </format>
+                    </payloadFactory>
+                    <http.post configKey="ExternalSOAPService">
+                        <relativePath>/getDeliveryLocation</relativePath>
+                        <headers>[["Content-Type","text/xml"], ["SOAPAction","get_delivery_location"]]</headers>
+                        <requestBodyType>XML</requestBodyType>
+                        <requestBodyXml>${xpath('$body/node()')}</requestBodyXml>
+                        <forceScAccepted>false</forceScAccepted>
+                        <disableChunking>false</disableChunking>
+                        <forceHttp10>false</forceHttp10>
+                        <noKeepAlive>false</noKeepAlive>
+                        <forcePostPutNobody>false</forcePostPutNobody>
+                        <forceHttpContentLength>false</forceHttpContentLength>
+                    </http.post>
+                    <log category="INFO">
+                        <message>SOAP delivery location response: ${payload}</message>
+                    </log>
+                    <!-- Convert XML response to JSON -->
+                    <jsontransform>
+                        <property name="direction" value="xmltojson"/>
+                    </jsontransform>
+                    <log category="INFO">
+                        <message>Converted JSON response: ${payload}</message>
+                    </log>
+                    <!-- Extract data from the converted JSON and create clean response -->
+                    <variable name="status" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.status}"/>
+                    <variable name="responseOrderID" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.orderID}"/>
+                    <variable name="customerId" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.customer_id}"/>
+                    <variable name="customerName" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.customer_name}"/>
+                    <variable name="totalAmount" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.totalAmount}"/>
+                    <variable name="customerPhone" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.customer_phone}"/>
+                    <variable name="priority" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.priority}"/>
+                    <variable name="orderStatus" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.order_status}"/>
+                    <variable name="address" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.delivery_location.address}"/>
+                    <variable name="latitude" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.delivery_location.latitude}"/>
+                    <variable name="longitude" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.delivery_location.longitude}"/>
+                    <variable name="message" type="STRING" expression="${payload.Envelope.Body.get_delivery_location_response.message}"/>
+                    <!-- Create clean JSON response payload -->
+                    <payloadFactory media-type="json" template-type="default">
+                        <format>
+                            {
+                            "status": "${vars.status}",
+                            "orderID": "${vars.responseOrderID}",
+                            "customer_id": "${vars.customerId}",
+                            "customer_name": "${vars.customerName}",
+                            "customer_phone": "${vars.customerPhone}",
+                            "priority": "${vars.priority}",
+                            "order_status": "${vars.orderStatus}",
+                            "delivery_location": {
+                            "address": "${vars.address}","totalAmount":"${vars.totalAmount}",
+                            "latitude": "${vars.latitude}",
+                            "longitude": "${vars.longitude}"
+                            },
+                            "message": "${vars.message}"
+                            }
+                        </format>
+                    </payloadFactory>
+                    <log category="INFO">
+                        <message>Final clean JSON response: ${payload}</message>
+                    </log>
+                    <!-- Third: Send to ROS service with required format -->
+                    <payloadFactory media-type="json" template-type="default">
+                        <format>
+                            {
+                            "order_id": "${vars.responseOrderID}",
+                            "customer_name": "${vars.customerName}",
+                            "customer_phone": "${vars.customerPhone}","totalAmount":"${vars.totalAmount}",
+                            "delivery_address": {
+                            "address": "${vars.address}",
+                            "latitude": ${vars.latitude},
+                            "longitude": ${vars.longitude}
+                            },
+                            "priority": "${vars.priority}",
+                            "status": "ready-to-deliver"
+                            }
+                        </format>
+                    </payloadFactory>
+                    <http.post configKey="ROSConnection">
+                        <relativePath>/orders/ready-to-deliver</relativePath>
+                        <headers>[["Content-Type","application/json"]]</headers>
+                        <requestBodyType>JSON</requestBodyType>
+                        <requestBodyJson>${payload}</requestBodyJson>
+                        <forceScAccepted>false</forceScAccepted>
+                        <disableChunking>false</disableChunking>
+                        <forceHttp10>false</forceHttp10>
+                        <noKeepAlive>false</noKeepAlive>
+                        <forcePostPutNobody>false</forcePostPutNobody>
+                        <forceHttpContentLength>false</forceHttpContentLength>
+                    </http.post>
+                    <log category="INFO">
+                        <message>ROS ready-to-deliver response: ${payload}</message>
+                    </log>
+                    <respond/>
+                </then>
+                <else>
+                    <log category="ERROR">
+                        <message>Invalid request for ready-to-deliver</message>
+                    </log>
+                    <payloadFactory media-type="json">
+                        <format>
+                            {
+                            "status": "error",
+                            "message": "Invalid request: order_id is required and status must be 'ready-to-deliver'"
+                            }
+                        </format>
+                    </payloadFactory>
+                    <respond/>
+                </else>
+            </filter>
+        </inSequence>
+        <faultSequence>
+            <log category="ERROR">
+                <message>Error occurred during ready-to-deliver: ${props.synapse.ERROR_MESSAGE}</message>
+            </log>
+            <payloadFactory media-type="json">
+                <format>
+                    {
+                    "status": "error",
+                    "message": "Failed to process ready-to-deliver request"
+                    }
+                </format>
+            </payloadFactory>
+            <respond/>
+        </faultSequence>
+    </resource>
+</api>

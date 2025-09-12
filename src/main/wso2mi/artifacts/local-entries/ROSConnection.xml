@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<localEntry key="ROSConnection" xmlns="http://ws.apache.org/ns/synapse">
+    <http.init>
+        <connectionType>http</connectionType>
+        <baseUrl>http://localhost:8001</baseUrl>
+        <authType>None</authType>
+        <timeoutDuration>30</timeoutDuration>
+        <timeoutAction>Never</timeoutAction>
+        <retryCount>0</retryCount>
+        <retryDelay>0</retryDelay>
+        <suspendInitialDuration>-1</suspendInitialDuration>
+        <suspendProgressionFactor>1</suspendProgressionFactor>
+        <name>ROSConnection</name>
+    </http.init>
+</localEntry>

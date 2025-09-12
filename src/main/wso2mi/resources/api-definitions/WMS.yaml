@@ -1,0 +1,59 @@
+openapi: 3.0.1
+info:
+  title: WMS
+  description: API Definition of WMS
+  version: 1.0.0
+servers:
+- url: http://localhost:8290/wms
+paths:
+  /getOrders/{customerID}:
+    get:
+      parameters:
+      - name: customerID
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        default:
+          description: Default response
+  /updateStatus:
+    post:
+      requestBody:
+        description: Sample Payload
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                payload:
+                  type: object
+          application/xml:
+            schema:
+              type: object
+              xml:
+                name: payload
+        required: false
+      responses:
+        default:
+          description: Default response
+  /ready-to-deliver:
+    post:
+      requestBody:
+        description: Sample Payload
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                payload:
+                  type: object
+          application/xml:
+            schema:
+              type: object
+              xml:
+                name: payload
+        required: false
+      responses:
+        default:
+          description: Default response

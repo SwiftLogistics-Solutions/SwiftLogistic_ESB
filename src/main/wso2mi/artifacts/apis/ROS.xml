@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/ros" name="ROS" xmlns="http://ws.apache.org/ns/synapse">
+    <resource methods="POST" uri-template="/orders/accept">
+        <inSequence>
+            <log category="INFO">
+                <message>Received order acceptance request: ${payload}</message>
+            </log>
+            <!-- Store the order_id before making HTTP calls -->
+            <variable name="orderId" type="STRING" expression="${payload.order_id}"/>
+            <variable name="driverId" type="STRING" expression="${payload.driver_id}"/>
+            <!-- Create the required JSON payload -->
+            <payloadFactory media-type="json">
+                <format>
+                    {
+                    "order_id": "${vars.orderId}",
+                    "driver_id": "${vars.driverId}"
+                    }
+                </format>
+            </payloadFactory>
+            <!-- Send POST request to the external ROS service -->
+            <http.post configKey="ROSConnection">
+                <relativePath>/orders/accept</relativePath>
+                <headers>[["Content-Type","application/json"]]</headers>
+                <requestBodyType>JSON</requestBodyType>
+                <requestBodyJson>${payload}</requestBodyJson>
+                <forceScAccepted>false</forceScAccepted>
+                <disableChunking>false</disableChunking>
+                <forceHttp10>false</forceHttp10>
+                <noKeepAlive>false</noKeepAlive>
+                <forcePostPutNobody>false</forcePostPutNobody>
+                <forceHttpContentLength>false</forceHttpContentLength>
+            </http.post>
+            <!-- Send update to WMS service -->
+            <payloadFactory media-type="json">
+                <format>
+                    {
+                    "orderID": "${vars.orderId}",
+                    "status": "accepted"
+                    }
+                </format>
+            </payloadFactory>
+            <http.post configKey="Middleware">
+                <relativePath>/wms/updateStatus</relativePath>
+                <headers>[["Content-Type","application/json"]]</headers>
+                <requestBodyType>JSON</requestBodyType>
+                <requestBodyJson>${payload}</requestBodyJson>
+                <forceScAccepted>false</forceScAccepted>
+                <disableChunking>false</disableChunking>
+                <forceHttp10>false</forceHttp10>
+                <noKeepAlive>false</noKeepAlive>
+                <forcePostPutNobody>false</forcePostPutNobody>
+                <forceHttpContentLength>false</forceHttpContentLength>
+            </http.post>
+            <log category="INFO">
+                <message>Order acceptance processed successfully: ${payload}</message>
+            </log>
+            <respond/>
+        </inSequence>
+        <faultSequence>
+            <log category="ERROR">
+                <message>Error occurred: ${props.synapse.ERROR_MESSAGE}</message>
+            </log>
+            <payloadFactory media-type="json">
+                <format>
+                    {
+                    "status": "error",
+                    "message": "Failed to process order acceptance"
+                    }
+                </format>
+            </payloadFactory>
+            <respond/>
+        </faultSequence>
+    </resource>
+    <resource methods="GET" protocol="http" uri-template="/routes/optimize/{driverid}">
+        <inSequence>
+            <log category="INFO">
+                <message>Received route optimization request for driver: ${params.pathParams.driverid}</message>
+            </log>
+            <!-- Make GET request to external service with driver_id path parameter -->
+            <http.get configKey="ROSConnection">
+                <relativePath>/routes/optimize/${params.pathParams.driverid}</relativePath>
+                <headers>[["Content-Type","application/json"]]</headers>
+                <forceScAccepted>false</forceScAccepted>
+                <disableChunking>false</disableChunking>
+                <forceHttp10>false</forceHttp10>
+                <noKeepAlive>false</noKeepAlive>
+                <forcePostPutNobody>false</forcePostPutNobody>
+                <forceHttpContentLength>false</forceHttpContentLength>
+            </http.get>
+            <log category="INFO">
+                <message>Route optimization response: ${payload}</message>
+            </log>
+            <respond/>
+        </inSequence>
+        <faultSequence>
+            <log category="ERROR">
+                <message>Error occurred during route optimization: ${props.synapse.ERROR_MESSAGE}</message>
+            </log>
+            <payloadFactory media-type="json">
+                <format>
+                    {
+                    "status": "error",
+                    "message": "Failed to optimize routes for driver"
+                    }
+                </format>
+            </payloadFactory>
+            <respond/>
+        </faultSequence>
+    </resource>
+    <resource methods="POST" uri-template="/orders/deliver">
+        <inSequence>
+            <log category="INFO">
+                <message>Received order delivery request: ${payload}</message>
+            </log>
+            <!-- Store the order_id and driver_id before making HTTP calls -->
+            <variable name="orderId" type="STRING" expression="${payload.order_id}"/>
+            <variable name="driverId" type="STRING" expression="${payload.driver_id}"/>
+            <!-- Validate required fields -->
+            <filter xpath="${exists(payload.order_id) and exists(payload.driver_id) and exists(payload.delivery_proof)}">
+                <then>
+                    <!-- First: Send update to WMS service -->
+                    <payloadFactory media-type="json">
+                        <format>
+                            {
+                            "orderID": "${vars.orderId}",
+                            "status": "delivered"
+                            }
+                        </format>
+                    </payloadFactory>
+                    <http.post configKey="Middleware">
+                        <relativePath>/wms/updateStatus</relativePath>
+                        <headers>[["Content-Type","application/json"]]</headers>
+                        <requestBodyType>JSON</requestBodyType>
+                        <requestBodyJson>${payload}</requestBodyJson>
+                        <forceScAccepted>false</forceScAccepted>
+                        <disableChunking>false</disableChunking>
+                        <forceHttp10>false</forceHttp10>
+                        <noKeepAlive>false</noKeepAlive>
+                        <forcePostPutNobody>false</forcePostPutNobody>
+                        <forceHttpContentLength>false</forceHttpContentLength>
+                    </http.post>
+                    <log category="INFO">
+                        <message>WMS update response: ${payload}</message>
+                    </log>
+                    <!-- Second: Send DELETE request to ROS service -->
+                    <http.delete configKey="ROSConnection">
+                        <relativePath>/orders/${vars.orderId}</relativePath>
+                        <headers>[["Content-Type","application/json"]]</headers>
+                        <forceScAccepted>false</forceScAccepted>
+                        <disableChunking>false</disableChunking>
+                        <forceHttp10>false</forceHttp10>
+                        <noKeepAlive>false</noKeepAlive>
+                        <forcePostPutNobody>false</forcePostPutNobody>
+                        <forceHttpContentLength>false</forceHttpContentLength>
+                    </http.delete>
+                    <log category="INFO">
+                        <message>ROS deletion response: ${payload}</message>
+                    </log>
+                    <respond/>
+                </then>
+                <else>
+                    <log category="ERROR">
+                        <message>Missing required fields for delivery</message>
+                    </log>
+                    <payloadFactory media-type="json">
+                        <format>
+                            {
+                            "status": "error",
+                            "message": "Missing required fields: order_id, driver_id, and delivery_proof"
+                            }
+                        </format>
+                    </payloadFactory>
+                    <respond/>
+                </else>
+            </filter>
+        </inSequence>
+        <faultSequence>
+            <log category="ERROR">
+                <message>Error occurred during delivery: ${props.synapse.ERROR_MESSAGE}</message>
+            </log>
+            <payloadFactory media-type="json">
+                <format>
+                    {
+                    "status": "error",
+                    "message": "Failed to process delivery"
+                    }
+                </format>
+            </payloadFactory>
+            <respond/>
+        </faultSequence>
+    </resource>
+    <resource methods="POST" uri-template="/orders/on-delivery">
+        <inSequence>
+            <log category="INFO">
+                <message>Received on-delivery request: ${payload}</message>
+            </log>
+            <!-- Store the order_id and driver_id before making HTTP calls -->
+            <variable name="orderId" type="STRING" expression="${payload.order_id}"/>
+            <variable name="driverId" type="STRING" expression="${payload.driver_id}"/>
+            <!-- Validate required fields -->
+            <filter xpath="${exists(payload.order_id) and exists(payload.driver_id)}">
+                <then>
+                    <!-- Forward request to external ROS service -->
+                    <http.post configKey="ROSConnection">
+                        <relativePath>/orders/on-delivery</relativePath>
+                        <headers>[["Content-Type","application/json"]]</headers>
+                        <requestBodyType>JSON</requestBodyType>
+                        <requestBodyJson>${payload}</requestBodyJson>
+                        <forceScAccepted>false</forceScAccepted>
+                        <disableChunking>false</disableChunking>
+                        <forceHttp10>false</forceHttp10>
+                        <noKeepAlive>false</noKeepAlive>
+                        <forcePostPutNobody>false</forcePostPutNobody>
+                        <forceHttpContentLength>false</forceHttpContentLength>
+                    </http.post>
+                    <!-- Send update to WMS service using stored variables -->
+                    <payloadFactory media-type="json">
+                        <format>
+                            {
+                            "orderID": "${vars.orderId}",
+                            "status": "on-delivery"
+                            }
+                        </format>
+                    </payloadFactory>
+                    <http.post configKey="Middleware">
+                        <relativePath>/wms/updateStatus</relativePath>
+                        <headers>[["Content-Type","application/json"]]</headers>
+                        <requestBodyType>JSON</requestBodyType>
+                        <requestBodyJson>${payload}</requestBodyJson>
+                        <forceScAccepted>false</forceScAccepted>
+                        <disableChunking>false</disableChunking>
+                        <forceHttp10>false</forceHttp10>
+                        <noKeepAlive>false</noKeepAlive>
+                        <forcePostPutNobody>false</forcePostPutNobody>
+                        <forceHttpContentLength>false</forceHttpContentLength>
+                    </http.post>
+                    <log category="INFO">
+                        <message>On-delivery response: ${payload}</message>
+                    </log>
+                    <respond/>
+                </then>
+                <else>
+                    <log category="ERROR">
+                        <message>Missing required fields for on-delivery</message>
+                    </log>
+                    <payloadFactory media-type="json">
+                        <format>
+                            {
+                            "status": "error",
+                            "message": "Missing required fields: order_id and driver_id"
+                            }
+                        </format>
+                    </payloadFactory>
+                    <respond/>
+                </else>
+            </filter>
+        </inSequence>
+        <faultSequence>
+            <log category="ERROR">
+                <message>Error occurred during on-delivery: ${props.synapse.ERROR_MESSAGE}</message>
+            </log>
+            <payloadFactory media-type="json">
+                <format>
+                    {
+                    "status": "error",
+                    "message": "Failed to process on-delivery request"
+                    }
+                </format>
+            </payloadFactory>
+            <respond/>
+        </faultSequence>
+    </resource>
+</api>

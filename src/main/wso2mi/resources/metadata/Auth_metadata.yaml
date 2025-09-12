@@ -1,0 +1,10 @@
+---
+key: "Auth-1.0.0"
+name : "Auth"
+displayName : "Auth"
+description: "Auth"
+version: "1.0.0"
+serviceUrl: "https://{MI_HOST}:{MI_PORT}/auth"
+definitionType: "OAS3"
+securityType: "BASIC"
+mutualSSLEnabled: false

@@ -1,0 +1,49 @@
+openapi: 3.0.1
+info:
+  title: Product
+  description: API Definition of Product
+  version: 1.0.0
+servers:
+- url: http://localhost:8290/product
+paths:
+  /:
+    get:
+      responses:
+        default:
+          description: Default response
+  /{id}:
+    get:
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        default:
+          description: Default response
+  /offers:
+    get:
+      responses:
+        default:
+          description: Default response
+  /decrement-count:
+    post:
+      requestBody:
+        description: Sample Payload
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                payload:
+                  type: object
+          application/xml:
+            schema:
+              type: object
+              xml:
+                name: payload
+        required: false
+      responses:
+        default:
+          description: Default response
