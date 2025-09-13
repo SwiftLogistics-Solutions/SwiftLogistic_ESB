@@ -1,2 +1,2 @@
 # SwiftLogistic_ESB
-middlwware of the project
+Middlwware of the project. Implemented using WSO2 Micro Integrator
