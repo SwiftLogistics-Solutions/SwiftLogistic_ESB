@@ -51,6 +51,16 @@
                 <forcePostPutNobody>false</forcePostPutNobody>
                 <forceHttpContentLength>false</forceHttpContentLength>
             </http.post>
+            <http.delete configKey="NotificationService">
+                <relativePath>/api/notifications/delete/${vars.orderId}</relativePath>
+                <headers>[{"Content-Type":"application/json"}]</headers>
+                <forceScAccepted>false</forceScAccepted>
+                <disableChunking>false</disableChunking>
+                <forceHttp10>false</forceHttp10>
+                <noKeepAlive>false</noKeepAlive>
+                <responseVariable>http_delete_863</responseVariable>
+                <overwriteBody>true</overwriteBody>
+            </http.delete>
             <log category="INFO">
                 <message>Order acceptance processed successfully: ${payload}</message>
             </log>
