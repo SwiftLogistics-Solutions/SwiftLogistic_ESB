@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<api context="/notifications" name="Notifications" xmlns="http://ws.apache.org/ns/synapse">
+    <resource methods="GET" uri-template="/">
+        <inSequence>
+            <log category="INFO">
+                <message>Fetching all notifications</message>
+            </log>
+            <http.get configKey="NotificationService">
+                <relativePath>/api/notifications</relativePath>
+                <headers>[["Content-Type","application/json"]]</headers>
+                <forceScAccepted>false</forceScAccepted>
+                <disableChunking>false</disableChunking>
+                <forceHttp10>false</forceHttp10>
+                <noKeepAlive>false</noKeepAlive>
+                <forcePostPutNobody>false</forcePostPutNobody>
+                <forceHttpContentLength>false</forceHttpContentLength>
+            </http.get>
+            <respond/>
+        </inSequence>
+        <faultSequence>
+            <log category="ERROR">
+                <message>Error fetching notifications: ${props.synapse.ERROR_MESSAGE}</message>
+            </log>
+            <payloadFactory media-type="json">
+                <format>
+                    {
+                    "status": "error",
+                    "message": "Failed to fetch notifications"
+                    }
+                </format>
+            </payloadFactory>
+            <respond/>
+        </faultSequence>
+    </resource>
+</api>

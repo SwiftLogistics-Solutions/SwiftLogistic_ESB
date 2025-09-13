@@ -320,6 +320,23 @@
                         <forcePostPutNobody>false</forcePostPutNobody>
                         <forceHttpContentLength>false</forceHttpContentLength>
                     </http.post>
+                    <http.post configKey="NotificationService">
+                        <relativePath>/api/notifications/postNotification</relativePath>
+                        <headers>[]</headers>
+                        <requestBodyType>JSON</requestBodyType>
+                        <requestBodyJson>'{
+                            "order_id":"${vars.orderId}",
+                            "priority":"${vars.priority}",
+                            "address":"${vars.address}"
+                            }'</requestBodyJson>
+                        <forceScAccepted>false</forceScAccepted>
+                        <disableChunking>false</disableChunking>
+                        <forceHttp10>false</forceHttp10>
+                        <noKeepAlive>false</noKeepAlive>
+                        <forcePostPutNobody>false</forcePostPutNobody>
+                        <responseVariable>http_post_1</responseVariable>
+                        <overwriteBody>true</overwriteBody>
+                    </http.post>
                     <log category="INFO">
                         <message>ROS ready-to-deliver response: ${payload}</message>
                     </log>
